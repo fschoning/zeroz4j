@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.zeroz4j</groupId>
         <artifactId>zeroz4j-parent</artifactId>
-        <version>0</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>zeroz4j-bom</artifactId>

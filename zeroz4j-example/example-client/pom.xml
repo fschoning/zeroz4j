@@ -20,7 +20,7 @@
     <parent>
         <groupId>com.zeroz4j</groupId>
         <artifactId>zeroz4j-example</artifactId>
-        <version>0</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>example-client</artifactId>
@@ -43,7 +43,7 @@
         <dependency>
             <groupId>com.zeroz4j</groupId>
             <artifactId>example-shared</artifactId>
-            <version>0</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>com.frequal.flavour</groupId>
