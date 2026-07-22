@@ -1,0 +1,36 @@
+# Zeroz4j: 10 Core Concepts You Need to Know
+
+When developing an application with Zeroz4j, you are stepping into a unified, zero-impedance Java stack. There are no REST APIs, no JSON, no ORMs, and no JavaScript. To navigate this architecture, here are the 10 core concepts you need to understand:
+
+## 1. `@BinaryModel`
+Every domain model or entity that needs to be transmitted between the client and server must be annotated with `@BinaryModel`. This triggers the `zeroz4j-apt` annotation processor to generate an ultra-fast binary serializer at compile-time.
+
+## 2. `@RmiService`
+Used to annotate your service interfaces. Any interface annotated with `@RmiService` will have a client-side Wasm stub generated automatically. You simply invoke these interface methods on the client, and they execute on the server over the persistent WebSocket.
+
+## 3. `Zeroz4jClient`
+The bootstrap mechanism for your Wasm client application. By calling `Zeroz4jClient.connect(url, callback)`, you establish the binary WebSocket connection to the backend and initialize the RMI subsystem.
+
+## 4. `Zeroz4jServer`
+The bootstrap mechanism for your Helidon-based backend. Calling `Zeroz4jServer.start(port, name)` spins up the HTTP/WebSocket server, initializes the CDI environment (Weld), and binds the `zeroz4j-server-core` RMI dispatcher to incoming connections.
+
+## 5. Security: `@Secured` and `@RolesAllowed`
+Zeroz4j supports method-level security on the server. By annotating an `@RmiService` implementation method with `@Secured`, you ensure only authenticated users can call it. Adding `@RolesAllowed("admin")` restricts invocation to specific roles.
+
+## 6. Authentication: `RmiSecurityContext`
+The client logs in by calling an authentication endpoint or sending an `AUTH` frame. Once the server validates the user, it replies with an `AUTH` frame containing the user's roles. On the client side, `RmiSecurityContext.onAuthenticated()` fires, allowing your app to load authenticated UI views.
+
+## 7. `LiveSync` (Implicit Synchronization)
+While RMI is great for fetching data on demand, `LiveSync` is used for reactive, real-time UI updates. By annotating an entity with `@LiveSync`, the framework tracks it using session-scoped reference handles. When the server-side state changes, the `SyncEngine` automatically pushes updates to the client. The client's `ObjectMapper` intercepts these updates and modifies the object in memory inline, completely eliminating the need for explicit polling or subscriptions.
+
+## 8. EclipseStore (Native Persistence)
+Zeroz4j bypasses JPA and SQL completely. By using the `zeroz4j-store-eclipsestore` module, your Java memory graph *is* your database. You modify your objects in memory, call `storage.store(object)`, and the delta is serialized directly to disk as a binary graph.
+
+## 9. DOM-less UI (`zeroz4j-ui-components`)
+You do not write HTML/DOM manipulation code. The `zeroz4j-ui-components` module provides a Vaadin-like programmatic component model (e.g., `new Button("Click Me")`). The components are styled using Tailwind CSS and DaisyUI utility classes, completely in Java.
+
+## 10. `GrowableBuffer` (Binary Protocol)
+Under the hood, all communication uses `GrowableBuffer` to serialize method arguments and return types into a highly dense binary WebSocket frame. You rarely interact with this directly (as the APT processor handles it), but it is the secret to Zeroz4j's incredible performance and low overhead, replacing verbose JSON parsing.
+
+## 11. Reactive Signals (`ValueSignal`, `Computed`, `Effect`)
+In the frontend UI layer, Zeroz4j provides a set of reactive primitives in the `com.zeroz4j.ui.signals` package. `ValueSignal` holds a mutable state, `Computed` derives state from other signals, and `Effect` automatically re-runs when its tracked dependencies change. This provides a clean, dependency-tracking reactive state management system entirely within the Wasm client heap.

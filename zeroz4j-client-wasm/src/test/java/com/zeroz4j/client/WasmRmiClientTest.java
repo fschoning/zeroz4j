@@ -1,0 +1,183 @@
+/*
+ * Copyright 2026 Franz Schöning
+ * Project: https://www.zeroz4j.com
+ * Author: Franz Schöning - Principal Enterprise Architect (https://www.franzschoning.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.zeroz4j.client;
+
+import com.zeroz4j.api.BinarySerializer;
+import com.zeroz4j.api.GrowableBuffer;
+import com.zeroz4j.api.RmiSecurityContext;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.teavm.interop.AsyncCallback;
+
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class WasmRmiClientTest {
+
+    private FakeWebSocketChannel channel;
+
+    static class FakeWebSocketChannel implements WasmWebSocketChannel {
+        public List<byte[]> sentMessages = new ArrayList<>();
+        public BinaryMessageHandler handler;
+
+        @Override
+        public void sendRawBytes(byte[] payload) {
+            sentMessages.add(payload);
+        }
+
+        @Override
+        public void registerBinaryMessageHandler(BinaryMessageHandler handler) {
+            this.handler = handler;
+        }
+
+    }
+
+    static class FakeAsyncCallback implements AsyncCallback<Object> {
+        public Object result;
+        public Throwable error;
+        public boolean completed;
+
+        @Override
+        public void complete(Object result) {
+            this.result = result;
+            this.completed = true;
+        }
+
+        @Override
+        public void error(Throwable e) {
+            this.error = e;
+            this.completed = true;
+        }
+    }
+
+    @BeforeEach
+    public void setup() {
+        channel = new FakeWebSocketChannel();
+        WasmRmiClient.pendingRequests.clear();
+        WasmRmiClient.pushListeners.clear();
+        WasmRmiClient.messageIdGenerator.set(0);
+        WasmRmiClient.initialize(channel);
+    }
+
+    @Test
+    public void testInitializeRegistersHandler() {
+        assertNotNull(channel.handler, "Handler should be registered");
+    }
+
+    @Test
+    public void testExecuteCallSendsMessageAndAwaitsResponse() throws Exception {
+        FakeAsyncCallback callback = new FakeAsyncCallback();
+        Object[] args = new Object[]{"World"};
+
+        WasmRmiClient.executeCall("MyService", "sayHello", args, callback);
+
+        assertEquals(1, channel.sentMessages.size());
+        assertEquals(1, WasmRmiClient.pendingRequests.size());
+
+        byte[] sent = channel.sentMessages.get(0);
+        ByteBuffer buf = ByteBuffer.wrap(sent);
+        int msgId = buf.getInt(); // correlation ID
+
+        // Validate sent format
+        assertEquals("MyService", BinarySerializer.readString(buf));
+        assertEquals("sayHello", BinarySerializer.readString(buf));
+        assertEquals(1, buf.getInt()); // arg count
+        assertEquals("World", BinarySerializer.readValue(buf, WasmRmiClient.MAPPER));
+
+        // Simulate server SUCCESS response
+        GrowableBuffer resp = new GrowableBuffer();
+        resp.putInt(msgId);
+        resp.put((byte) 0x01); // SUCCESS
+        BinarySerializer.writeValue(resp, "Hello World", WasmRmiClient.MAPPER);
+
+        WasmRmiClient.routeIncomingMessage(resp.toByteArray());
+
+        assertTrue(callback.completed);
+        assertEquals("Hello World", callback.result);
+        assertNull(callback.error);
+        assertEquals(0, WasmRmiClient.pendingRequests.size());
+    }
+
+    @Test
+    public void testExecuteCallHandlesErrorResponse() throws Exception {
+        FakeAsyncCallback callback = new FakeAsyncCallback();
+        WasmRmiClient.executeCall("MyService", "throwError", null, callback);
+
+        byte[] sent = channel.sentMessages.get(0);
+        int msgId = ByteBuffer.wrap(sent).getInt();
+
+        // Simulate server ERROR response
+        GrowableBuffer resp = new GrowableBuffer();
+        resp.putInt(msgId);
+        resp.put((byte) 0x0F); // ERROR
+        BinarySerializer.writeString(resp, "Server Error Occurred");
+
+        WasmRmiClient.routeIncomingMessage(resp.toByteArray());
+
+        assertTrue(callback.completed);
+        assertNotNull(callback.error);
+        assertEquals("Server Error Occurred", callback.error.getMessage());
+    }
+
+    @Test
+    public void testRouteIncomingAuthFrame() throws Exception {
+        GrowableBuffer authFrame = new GrowableBuffer();
+        authFrame.putInt(0); // Correlation ID (0 for broadcast)
+        authFrame.put((byte) 0x03); // AUTH frame
+        authFrame.put((byte) 1); // Protocol version
+        BinarySerializer.writeString(authFrame, "alice");
+        authFrame.putInt(2); // 2 roles
+        BinarySerializer.writeString(authFrame, "admin");
+        BinarySerializer.writeString(authFrame, "user");
+
+        WasmRmiClient.routeIncomingMessage(authFrame.toByteArray());
+
+        assertTrue(RmiSecurityContext.isAuthenticated());
+        assertEquals("alice", RmiSecurityContext.getUsername());
+        assertTrue(RmiSecurityContext.hasAnyRole("admin"));
+        assertTrue(RmiSecurityContext.hasAnyRole("user"));
+        assertFalse(RmiSecurityContext.hasAnyRole("guest"));
+    }
+
+    @Test
+    public void testPushListeners() throws Exception {
+        List<Object> receivedPushes = new ArrayList<>();
+        WasmRmiClient.registerPushListener("testTopic", receivedPushes::add);
+
+        GrowableBuffer pushFrame = new GrowableBuffer();
+        pushFrame.putInt(0);
+        pushFrame.put((byte) 0x02); // PUSH
+        BinarySerializer.writeString(pushFrame, "testTopic");
+        BinarySerializer.writeValue(pushFrame, "pushPayload", WasmRmiClient.MAPPER);
+
+        WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+
+        assertEquals(1, receivedPushes.size());
+        assertEquals("pushPayload", receivedPushes.get(0));
+
+        // Test remove
+        WasmRmiClient.clearPushListeners("testTopic");
+        receivedPushes.clear();
+
+        WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+        assertEquals(0, receivedPushes.size(), "Should not receive pushes after clear");
+    }
+}

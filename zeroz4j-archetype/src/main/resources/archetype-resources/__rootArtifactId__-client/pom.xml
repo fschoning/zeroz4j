@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>${groupId}</groupId>
+    <artifactId>${rootArtifactId}</artifactId>
+    <version>${version}</version>
+  </parent>
+  <artifactId>${rootArtifactId}-client</artifactId>
+  
+  <dependencies>
+    <dependency>
+      <groupId>${groupId}</groupId>
+      <artifactId>${rootArtifactId}-shared</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.zeroz4j</groupId>
+      <artifactId>zeroz4j-client-wasm</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.zeroz4j</groupId>
+      <artifactId>zeroz4j-ui-components</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.zeroz4j</groupId>
+      <artifactId>zeroz4j-apt</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.teavm</groupId>
+        <artifactId>teavm-maven-plugin</artifactId>
+        <version>0.15.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+            <phase>process-classes</phase>
+            <configuration>
+              <mainClass>${package}.client.ClientApp</mainClass>
+              <mainPageIncluded>false</mainPageIncluded>
+              <optimizationLevel>ADVANCED</optimizationLevel>
+              <targetDirectory>${project.build.directory}/generated/wasm</targetDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

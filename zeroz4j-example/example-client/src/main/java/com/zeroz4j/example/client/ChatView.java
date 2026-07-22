@@ -1,0 +1,150 @@
+/*
+ * Copyright 2026 Franz Schöning
+ * Project: https://www.zeroz4j.com
+ * Author: Franz Schöning - Principal Enterprise Architect (https://www.franzschoning.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.zeroz4j.example.client;
+
+import com.zeroz4j.example.api.ChatService;
+import com.zeroz4j.example.api.ChatService_Stub;
+import com.zeroz4j.example.model.ChatMessage;
+import com.zeroz4j.ui.component.*;
+import com.zeroz4j.ui.layout.*;
+import com.zeroz4j.ui.signals.ValueSignal;
+import com.zeroz4j.ui.signals.Effect;
+
+import java.util.ArrayList;
+import java.util.List;
+import com.zeroz4j.api.RmiSecurityContext;
+import com.zeroz4j.client.WasmRmiClient;
+
+public class ChatView extends Card {
+
+    private final ChatService chatService;
+    private final ValueSignal<List<ChatMessage>> messagesSignal = new ValueSignal<>(new ArrayList<>());
+    private final ValueSignal<String> errorMessageSignal = new ValueSignal<>("");
+
+    private final Div messageListContainer;
+
+    public ChatView() {
+        super();
+        chatService = new ChatService_Stub();
+
+        addClassName("h-[600px]");
+        addClassName("flex");
+        addClassName("flex-col");
+
+        add(new CardTitle("Chat"));
+
+        messageListContainer = new Div();
+        messageListContainer.addClassName("flex-1");
+        messageListContainer.addClassName("bg-base-200");
+        messageListContainer.addClassName("rounded-box");
+        messageListContainer.addClassName("p-4");
+        messageListContainer.addClassName("mb-4");
+        messageListContainer.addClassName("overflow-y-auto");
+        add(messageListContainer);
+
+        HorizontalLayout inputLayout = new HorizontalLayout();
+        inputLayout.addClassName("gap-2");
+        inputLayout.addClassName("w-full");
+
+        TextField inputField = new TextField("Type a message...");
+        inputField.addClassName("flex-1");
+        
+        Button sendButton = new Button("Send");
+        sendButton.addClassName("btn-primary");
+        
+        inputLayout.add(inputField, sendButton);
+        add(inputLayout);
+
+        // Error message display
+        Div errorDiv = new Div();
+        errorDiv.addClassName("text-error");
+        errorDiv.addClassName("mt-2");
+        Effect.create(() -> {
+            errorDiv.getElement().setInnerHTML(errorMessageSignal.get());
+        });
+        add(errorDiv);
+
+        sendButton.addClickListener(e -> {
+            String text = inputField.getValue();
+            if (text != null && !text.trim().isEmpty()) {
+                inputField.setValue("");
+                try {
+                    chatService.sendMessage(text);
+                    refreshHistory();
+                } catch (Exception ex) {
+                    System.err.println("[zeroz4j] Chat error: " + ex.getMessage());
+                    errorMessageSignal.set("Failed to send message: " + ex.getMessage());
+                }
+            }
+        });
+
+        // Re-render messages when signal updates
+        Effect.create(() -> {
+            messageListContainer.getElement().setInnerHTML(""); // Clear
+            String currentUser = RmiSecurityContext.getUsername();
+            for (ChatMessage msg : messagesSignal.get()) {
+                Div msgDiv = new Div();
+                msgDiv.addClassName("chat");
+                
+                boolean isMe = currentUser != null && currentUser.equals(msg.getSender());
+                if (isMe) {
+                    msgDiv.addClassName("chat-end");
+                } else {
+                    msgDiv.addClassName("chat-start");
+                }
+                
+                Div header = new Div();
+                header.addClassName("chat-header");
+                header.setText(msg.getSender());
+                
+                ChatBubble bubble = new ChatBubble(msg.getText());
+                if (isMe) {
+                    bubble.addClassName("chat-bubble-primary");
+                } else {
+                    bubble.addClassName("chat-bubble-secondary");
+                }
+                
+                msgDiv.add(header, bubble);
+                messageListContainer.add(msgDiv);
+            }
+        });
+
+        refreshHistory();
+
+        WasmRmiClient.registerPushListener("chat.new_message", msg -> {
+            refreshHistory();
+        });
+        WasmRmiClient.registerPushListener("chat.cleared", msg -> {
+            refreshHistory();
+        });
+    }
+
+    private void refreshHistory() {
+        new Thread(() -> {
+            try {
+                List<ChatMessage> history = chatService.getHistory();
+                messagesSignal.set(history);
+                errorMessageSignal.set("");
+            } catch (Exception ex) {
+                System.err.println("[zeroz4j] Chat error: " + ex.getMessage());
+                errorMessageSignal.set("Failed to load chat history: " + ex.getMessage());
+            }
+        }).start();
+    }
+}
+
