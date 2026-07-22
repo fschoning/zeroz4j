@@ -63,7 +63,36 @@ ZeroZ4j is fully modular, allowing developers to pick exactly what they need:
 
 ---
 
-## 5. Developer Resources
+## 5. Using ZeroZ4j via Maven (JitPack)
+
+You can easily include `zeroz4j` in your own Maven projects using [JitPack](https://jitpack.io). Since this repository is hosted on GitHub, JitPack will automatically build and serve the dependency for you.
+
+Add the JitPack repository to your `pom.xml`:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+```
+
+Then, add the dependency pointing to this GitHub repository and the specific release tag (e.g., `v1.0.0` or `main-SNAPSHOT`):
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>com.github.fschoning</groupId>
+        <artifactId>zeroz4j</artifactId>
+        <version>v1.0.0</version>
+    </dependency>
+</dependencies>
+```
+
+---
+
+## 6. Developer Resources
 
 This repository contains the core framework and reference implementations. 
 
