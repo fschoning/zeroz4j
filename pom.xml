@@ -21,7 +21,7 @@
 
     <groupId>com.zeroz4j</groupId>
     <artifactId>zeroz4j-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0</version>
     <packaging>pom</packaging>
 
     <name>zeroz4j Parent</name>
