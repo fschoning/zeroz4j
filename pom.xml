@@ -63,6 +63,7 @@
     </modules>
 
     <properties>
+        <revision>0.1.0</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <teavm.version>0.15.0</teavm.version>
         <jakarta.ee.version>10.0.0</jakarta.ee.version>
