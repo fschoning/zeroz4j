@@ -14,7 +14,9 @@ The server's only role is serving the Wasm client and providing the seed tasks o
 
 ## Running
 
-Build the reactor once from the repository root, then start the server:
+Build the reactor once from the repository root (`mvn install -DskipTests`), then
+double-click `run.bat` in this folder (or run it from a terminal) — it launches the
+server with plain `java`, no Maven involved. Alternatively, by hand:
 
 ```bash
 mvn install -DskipTests

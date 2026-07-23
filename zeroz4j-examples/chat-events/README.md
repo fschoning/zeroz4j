@@ -22,7 +22,9 @@ Note the trade-off this style accepts: view state lives in a plain list, and eve
 
 ## Running
 
-Build the reactor once from the repository root, then start the server:
+Build the reactor once from the repository root (`mvn install -DskipTests`), then
+double-click `run.bat` in this folder (or run it from a terminal) — it launches the
+server with plain `java`, no Maven involved. Alternatively, by hand:
 
 ```bash
 mvn install -DskipTests
