@@ -22,8 +22,6 @@ import com.zeroz4j.ui.layout.Div;
 import com.zeroz4j.ui.layout.HorizontalLayout;
 import com.zeroz4j.ui.layout.Span;
 import com.zeroz4j.ui.layout.VerticalLayout;
-import com.zeroz4j.ui.signals.Effect;
-import com.zeroz4j.ui.signals.ValueSignal;
 import com.zeroz4j.ui.component.Menu;
 import com.zeroz4j.ui.component.ThemeController;
 import org.teavm.jso.browser.Window;
@@ -73,15 +71,11 @@ public class MainLayout extends HorizontalLayout {
         themeLayout.add(themeLabel);
         
         ThemeController themeToggle = new ThemeController(true);
-        ValueSignal<Boolean> darkThemeSignal = new ValueSignal<>(true);
-        themeToggle.bindValue(darkThemeSignal);
-        
-        Effect.create(() -> {
-            Boolean isDark = darkThemeSignal.get();
-            String theme = (isDark != null && isDark) ? "dark" : "light";
-            Window.current().getDocument().getBody().setAttribute("data-theme", theme);
-        });
-        
+        themeToggle.setValue(true);
+        applyTheme(true);
+        themeToggle.addValueChangeListener(event ->
+                applyTheme(event.getValue() != null && event.getValue()));
+
         themeLayout.add(themeToggle);
         themeItem.getElement().appendChild(themeLayout.getElement());
         menu.add(themeItem);
@@ -99,5 +93,9 @@ public class MainLayout extends HorizontalLayout {
         contentArea.add(chatView);
 
         add(contentArea);
+    }
+
+    private static void applyTheme(boolean isDark) {
+        Window.current().getDocument().getBody().setAttribute("data-theme", isDark ? "dark" : "light");
     }
 }

@@ -32,7 +32,7 @@
 
     <modules>
         <module>components-showcase</module>
-        <module>chat-signals</module>
+        <module>chat-events</module>
         <module>chat-livesync</module>
     </modules>
 

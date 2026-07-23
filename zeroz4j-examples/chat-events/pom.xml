@@ -26,14 +26,14 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>chat-signals</artifactId>
+    <artifactId>chat-events</artifactId>
 
     <packaging>pom</packaging>
 
     <modules>
-        <module>chat-signals-shared</module>
-        <module>chat-signals-client</module>
-        <module>chat-signals-server</module>
+        <module>chat-events-shared</module>
+        <module>chat-events-client</module>
+        <module>chat-events-server</module>
     </modules>
 
 </project>

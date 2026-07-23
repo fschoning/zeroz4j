@@ -17,6 +17,8 @@
  */
 package com.zeroz4j.ui.signals;
 
+import com.zeroz4j.api.Disposable;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,18 +38,6 @@ import java.util.function.Consumer;
  * </ul>
  */
 public class Effect {
-
-    /**
-     * A handle returned by {@link Effect#create(Runnable)} that allows
-     * callers to dispose of an effect, removing all signal subscriptions.
-     */
-    @FunctionalInterface
-    public interface Disposable {
-        /**
-         * Disposes of the effect and removes all active signal subscriptions.
-         */
-        void dispose();
-    }
 
     // S1 fix: ThreadLocal per-thread tracking stack instead of a shared static Stack.
     private static final ThreadLocal<ArrayDeque<Consumer<Signal<?>>>> trackingStack =

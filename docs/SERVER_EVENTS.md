@@ -8,12 +8,10 @@ Zeroz4j uses four terms with distinct meanings — keeping them apart keeps the 
 
 | Term | Meaning |
 |---|---|
-| **Signal** | Client-side reactive *state*: `ValueSignal`, `Computed`, `Effect`, `ObservableSignal`. Always has a current value; changes are detected by equality. |
 | **Event** | A discrete, fire-and-forget *occurrence* broadcast from server to client: `EventTopic`, `EventPublisher`, `ServerEvents`. There is no "current value" and no replay. |
+| **Signal** | Client-side reactive *state*: `ValueSignal`, `Computed`, `Effect` (see [SIGNALS.md](SIGNALS.md)). A separate, independent feature — **events do not require signals**. |
 | **Push** | The transport direction: the 0x02 PUSH frame that carries events over the WebSocket. |
 | **Message** | Reserved for application domains (e.g. a `ChatMessage` in a chat app). Never a framework concept — Zeroz4j is not a message broker. |
-
-The sentence that ties them together: **server events feed client signals through reducers.**
 
 ## Declaring topics
 
@@ -57,29 +55,18 @@ public class ChatServiceImpl implements ChatService {
 
 ## Subscribing (client)
 
-Events are occurrences; your UI state lives in signals. The recommended pattern is a **reducer**: fold each event into a state signal with an immutable update (so `ValueSignal`'s equality-based change detection sees every change):
+`ServerEvents.on` registers a typed handler — an ordinary callback. Update your components directly in it:
 
 ```java
-ValueSignal<List<ChatMessage>> messages = new ValueSignal<>(new ArrayList<>());
-
-Effect.Disposable sub = ServerEvents.on(ChatEvents.MESSAGE_POSTED, msg ->
-        messages.update(list -> {
-            List<ChatMessage> next = new ArrayList<>(list);
-            next.add(msg);
-            return next;
-        }));
+Disposable sub = ServerEvents.on(ChatEvents.MESSAGE_POSTED, msg -> {
+    messages.add(msg);
+    render();
+});
 ```
 
-Every subscription returns a `Disposable` — dispose it when the owning view is permanently removed.
+Every subscription returns a `Disposable` — dispose it when the owning view is permanently removed. Handlers run on the platform UI scheduler when one is configured.
 
-For topics whose payload genuinely *is* state (a status broadcast, a live counter), bridge events into the Signals world with `latest`:
-
-```java
-ServerEvents.LatestSignal<ServerStatus> status =
-        ServerEvents.latest(StatusEvents.CHANGED, ServerStatus.UNKNOWN);
-
-Effect.create(() -> statusLabel.setText(status.get().toString()));
-```
+The `chat-events` example (`zeroz4j-examples/chat-events`) demonstrates this pattern end-to-end.
 
 ## Avoiding the snapshot race
 
@@ -91,7 +78,27 @@ List<ChatMessage> history = chatService.getHistory();     // 2. then fetch
 // 3. merge history with already-received events
 ```
 
-The `chat-signals` example (`zeroz4j-examples/chat-signals`) demonstrates the full pattern end-to-end.
+## Combining with Signals (optional)
+
+Signals are **not required** to consume events. The rule of thumb:
+
+* **One render path** (a handler updates one component): plain handlers, as above.
+* **Derived or multiply-rendered state** (counts, filters, the same data shown in several places): hold the state in a `ValueSignal` and let the handler *reduce* the event into it with an immutable update — rendering then follows automatically via `Effect`, and the two can never drift apart:
+
+```java
+ValueSignal<List<ChatMessage>> messages = new ValueSignal<>(new ArrayList<>());
+
+Disposable sub = ServerEvents.on(ChatEvents.MESSAGE_POSTED, msg ->
+        messages.update(list -> {
+            List<ChatMessage> next = new ArrayList<>(list);
+            next.add(msg);
+            return next;
+        }));
+```
+
+For topics whose payload genuinely *is* state (a status broadcast, a live counter), `ServerEvents.latest(topic, initialValue)` returns a `LatestSignal` — the built-in bridge that holds the most recent payload and participates in `Effect`/`Computed` tracking.
+
+See [SIGNALS.md](SIGNALS.md) and the `todo-signals` example for the reactive model itself.
 
 ## Delivery semantics
 

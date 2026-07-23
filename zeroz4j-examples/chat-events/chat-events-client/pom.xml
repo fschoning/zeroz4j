@@ -19,11 +19,11 @@
 
     <parent>
         <groupId>com.zeroz4j</groupId>
-        <artifactId>chat-signals</artifactId>
+        <artifactId>chat-events</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>chat-signals-client</artifactId>
+    <artifactId>chat-events-client</artifactId>
     <packaging>jar</packaging>
 
 
@@ -42,7 +42,7 @@
         </dependency>
         <dependency>
             <groupId>com.zeroz4j</groupId>
-            <artifactId>chat-signals-shared</artifactId>
+            <artifactId>chat-events-shared</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>

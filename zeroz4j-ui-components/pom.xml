@@ -32,6 +32,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.zeroz4j</groupId>
+            <artifactId>zeroz4j-shared-api</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.teavm</groupId>
             <artifactId>teavm-jso</artifactId>
         </dependency>

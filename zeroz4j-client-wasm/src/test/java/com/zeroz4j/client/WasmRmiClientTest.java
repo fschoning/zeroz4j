@@ -216,7 +216,7 @@ public class WasmRmiClientTest {
                 com.zeroz4j.api.EventTopic.of(String.class, "events.test");
 
         List<String> received = new ArrayList<>();
-        com.zeroz4j.ui.signals.Effect.Disposable subscription =
+        com.zeroz4j.api.Disposable subscription =
                 ServerEvents.on(topic, received::add);
 
         GrowableBuffer pushFrame = new GrowableBuffer();
@@ -242,7 +242,7 @@ public class WasmRmiClientTest {
         assertEquals("none", latest.get());
 
         List<String> observed = new ArrayList<>();
-        com.zeroz4j.ui.signals.Effect.Disposable effect =
+        com.zeroz4j.api.Disposable effect =
                 com.zeroz4j.ui.signals.Effect.create(() -> observed.add(latest.get()));
 
         GrowableBuffer pushFrame = new GrowableBuffer();

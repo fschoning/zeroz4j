@@ -17,6 +17,7 @@
  */
 package com.zeroz4j.ui.signals;
 
+import com.zeroz4j.api.Disposable;
 import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,7 +62,7 @@ public class SignalTest {
         AtomicInteger runCount = new AtomicInteger(0);
         AtomicInteger lastValue = new AtomicInteger(-1);
 
-        Effect.Disposable disposable = Effect.create(() -> {
+        Disposable disposable = Effect.create(() -> {
             runCount.incrementAndGet();
             lastValue.set(counter.get());
         });
@@ -98,7 +99,7 @@ public class SignalTest {
 
         AtomicInteger effectRuns = new AtomicInteger(0);
 
-        Effect.Disposable disposable = Effect.create(() -> {
+        Disposable disposable = Effect.create(() -> {
             effectRuns.incrementAndGet();
             length.get(); // Depend on length
         });
@@ -151,7 +152,7 @@ public class SignalTest {
         CustomSignal signal = new CustomSignal();
         List<String> observed = new ArrayList<>();
 
-        Effect.Disposable disposable = Effect.create(() -> observed.add(signal.get()));
+        Disposable disposable = Effect.create(() -> observed.add(signal.get()));
         assertEquals(List.of("initial"), observed);
 
         signal.push("updated");
@@ -184,7 +185,7 @@ public class SignalTest {
 
         // An effect reading a disposed computed must not resurrect subscriptions
         AtomicInteger effectRuns = new AtomicInteger(0);
-        Effect.Disposable effect = Effect.create(() -> {
+        Disposable effect = Effect.create(() -> {
             effectRuns.incrementAndGet();
             doubled.get();
         });
