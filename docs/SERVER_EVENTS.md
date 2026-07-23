@@ -107,6 +107,6 @@ Stated plainly so there are no surprises:
 * **Broadcast** to all currently connected sessions (no per-topic subscription filtering yet).
 * **At most once** — a disconnected client misses events; there is no queueing, acknowledgement, or redelivery.
 * **No replay** — late subscribers do not receive past events.
-* Payloads must be wire-serializable: `@BinaryModel` classes or types supported by `BinarySerializer`.
+* Payloads must be wire-serializable: `@Portable` classes or types supported by `BinarySerializer`.
 
 If you need durable delivery or replay, model it in your application (as the snapshot-then-merge pattern above does) — Zeroz4j deliberately does not include broker semantics.

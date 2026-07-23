@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Registry of whole-object validators keyed by model class name, populated by the
- * APT-generated registrar for every {@code @BinaryModel} class carrying validation
+ * APT-generated registrar for every {@code @Portable} class carrying validation
  * annotations.
  *
  * <p>The server engine consults this registry automatically for incoming RMI arguments

@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
  * The annotated String field must be non-null and contain at least one non-whitespace
  * character.
  *
- * <p>Declared once on the {@code @BinaryModel} field, enforced on both tiers: the APT
+ * <p>Declared once on the {@code @Portable} field, enforced on both tiers: the APT
  * generates a reflection-free {@code <Model>_Rules} class used by UI field binding on the
  * Wasm client and automatically applied to incoming RMI arguments on the server.</p>
  */

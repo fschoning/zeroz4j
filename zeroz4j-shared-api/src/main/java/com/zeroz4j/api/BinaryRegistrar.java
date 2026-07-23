@@ -25,7 +25,7 @@ package com.zeroz4j.api;
  * <p><b>AI Agent Execution Notes:</b></p>
  * <ul>
  *   <li><b>AOT Code Generation:</b> The zeroz4j annotation processor (`zeroz4j-apt`) generates an implementation
- *       of this interface for each compilation unit containing {@link BinaryModel} classes, outputting a registration manifest in META-INF/services.</li>
+ *       of this interface for each compilation unit containing {@link Portable} classes, outputting a registration manifest in META-INF/services.</li>
  *   <li><b>Side Effects:</b> Invoking {@link #registerAll()} registers supplier factories and serializer delegates into static maps in {@link BinaryRegistry}.</li>
  * </ul>
  */
@@ -34,7 +34,7 @@ public interface BinaryRegistrar {
      * Registers all known {@link BinaryPackable} model types and their serializer delegates with {@link BinaryRegistry}.
      *
      * <p><b>Under the hood:</b> Generated code calls {@link BinaryRegistry#register(String, java.util.function.Supplier, BinarySerializerDelegate)}
-     * for every compiled {@code @BinaryModel} in the module.</p>
+     * for every compiled {@code @Portable} in the module.</p>
      */
     void registerAll();
 }

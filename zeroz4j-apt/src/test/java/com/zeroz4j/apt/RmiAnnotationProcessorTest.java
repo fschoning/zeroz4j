@@ -43,16 +43,10 @@ public class RmiAnnotationProcessorTest {
 
         // Create a model and service
         String modelSrc = "package com.test;\n" +
-                "import com.zeroz4j.api.BinaryModel;\n" +
-                "import com.zeroz4j.api.BinaryPackable;\n" +
-                "import com.zeroz4j.api.ObjectMapper;\n" +
-                "import com.zeroz4j.api.GrowableBuffer;\n" +
-                "import java.nio.ByteBuffer;\n" +
-                "@BinaryModel\n" +
-                "public class MyModel implements BinaryPackable {\n" +
+                "import com.zeroz4j.api.Portable;\n" +
+                "@Portable\n" +
+                "public class MyModel {\n" +
                 "    public String name;\n" +
-                "    @Override public void writeToBuffer(GrowableBuffer b, ObjectMapper m) {}\n" +
-                "    @Override public void readFromBuffer(ByteBuffer b, ObjectMapper m) {}\n" +
                 "}\n";
         
         String serviceSrc = "package com.test;\n" +
@@ -175,11 +169,10 @@ public class RmiAnnotationProcessorTest {
         Files.createDirectories(srcDir.resolve("com/test"));
 
         String modelSrc = "package com.test;\n" +
-                "import com.zeroz4j.api.BinaryModel;\n" +
-                "import com.zeroz4j.api.BinaryPackable;\n" +
+                "import com.zeroz4j.api.Portable;\n" +
                 "import com.zeroz4j.api.validation.*;\n" +
-                "@BinaryModel\n" +
-                "public class Registration implements BinaryPackable {\n" +
+                "@Portable\n" +
+                "public class Registration {\n" +
                 "    @NotBlank @Size(min = 2, max = 40)\n" +
                 "    private String fullName;\n" +
                 "    @Min(0) @Max(50)\n" +

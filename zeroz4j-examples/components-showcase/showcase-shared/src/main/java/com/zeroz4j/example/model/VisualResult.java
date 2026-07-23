@@ -17,14 +17,13 @@
  */
 package com.zeroz4j.example.model;
 
-import com.zeroz4j.api.BinaryPackable;
 
 import java.util.ArrayList;
 import java.util.List;
-import com.zeroz4j.api.BinaryModel;
+import com.zeroz4j.api.Portable;
 
-@BinaryModel
-public class VisualResult implements BinaryPackable {
+@Portable
+public class VisualResult {
     public int rowCount;
     public int columnCount;
     public List<String> columnNames;

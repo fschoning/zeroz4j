@@ -48,11 +48,10 @@ With ZeroZ4J, you avoid boilerplate HTTP mapping, JSON translation, and ORM sche
 Define your data structure. It automatically becomes serializable and persistable.
 
 ```java
-import com.zeroz4j.api.BinaryModel;
-import com.zeroz4j.api.BinaryPackable;
+import com.zeroz4j.api.Portable;
 
-@BinaryModel
-public class ChatMessage implements BinaryPackable {
+@Portable
+public class ChatMessage {
     private String author;
     private String text;
 

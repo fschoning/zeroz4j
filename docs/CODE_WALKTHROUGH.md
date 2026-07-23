@@ -3,14 +3,13 @@
 Zero impedance means your Java objects flow from the database to the browser without translation layers.
 
 ### Step 1: Declare the Domain Model
-Annotate your models with `@BinaryModel` and implement `BinaryPackable`. Compile-time serializers will be generated to write/read fields without reflection:
+Annotate your models with `@Portable` — one annotation, nothing else. Compile-time serializers will be generated to write/read fields without reflection:
 
 ```java
-import com.zeroz4j.api.BinaryModel;
-import com.zeroz4j.api.BinaryPackable;
+import com.zeroz4j.api.Portable;
 
-@BinaryModel
-public class UserInfo implements BinaryPackable {
+@Portable
+public class UserInfo {
     private String name;
     private int score;
 

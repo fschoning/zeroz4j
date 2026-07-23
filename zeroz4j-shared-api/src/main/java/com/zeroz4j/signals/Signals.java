@@ -47,7 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Shared signals are server-authoritative in this release: a client-side {@code set()}
  * fails with {@link IllegalStateException}. Payloads must be wire-serializable
- * ({@code @BinaryModel} classes or types supported by {@code BinarySerializer}).</p>
+ * ({@code @Portable} classes or types supported by {@code BinarySerializer}).</p>
  *
  * <p><b>AI Agent Execution Notes:</b></p>
  * <ul>

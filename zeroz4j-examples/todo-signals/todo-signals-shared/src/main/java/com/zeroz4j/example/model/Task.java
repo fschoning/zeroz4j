@@ -17,13 +17,12 @@
  */
 package com.zeroz4j.example.model;
 
-import com.zeroz4j.api.BinaryModel;
-import com.zeroz4j.api.BinaryPackable;
+import com.zeroz4j.api.Portable;
 
 import java.util.Objects;
 
-@BinaryModel
-public class Task implements BinaryPackable {
+@Portable
+public class Task {
     private long id;
     private String title;
     private boolean done;

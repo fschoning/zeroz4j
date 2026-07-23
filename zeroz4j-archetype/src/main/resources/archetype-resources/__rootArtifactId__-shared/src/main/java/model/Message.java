@@ -17,11 +17,10 @@
  */
 package ${package}.model;
 
-import com.zeroz4j.api.BinaryModel;
-import com.zeroz4j.api.BinaryPackable;
+import com.zeroz4j.api.Portable;
 
-@BinaryModel
-public class Message implements BinaryPackable {
+@Portable
+public class Message {
     public String text;
     
     public Message() {}

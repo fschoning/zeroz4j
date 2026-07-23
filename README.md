@@ -52,7 +52,7 @@ Unlike traditional Java web frameworks (like Vaadin), **ZeroZ4j maintains zero s
 
 ZeroZ4j is fully modular, allowing developers to pick exactly what they need:
 
-*   **`zeroz4j-shared-api`**: Annotations (`@BinaryModel`, `@RmiService`) and common interfaces.
+*   **`zeroz4j-shared-api`**: Annotations (`@Portable`, `@RmiService`) and common interfaces.
 *   **`zeroz4j-apt`**: The compile-time annotation processor for generating model serializers and RMI stubs.
 *   **`zeroz4j-client-wasm`**: The TeaVM bridging logic for the browser (WebSocket client, coroutines).
 *   **`zeroz4j-ui-components`**: A Vaadin-inspired, DOM-less Java UI component library built on Tailwind/DaisyUI.

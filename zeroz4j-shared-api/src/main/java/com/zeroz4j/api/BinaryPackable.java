@@ -20,14 +20,16 @@ package com.zeroz4j.api;
 import java.nio.ByteBuffer;
 
 /**
- * Core interface that must be implemented by all Data Transfer Objects (DTOs) and domain models
- * transmitted across the binary WebSocket RMI channel.
+ * Optional escape hatch for hand-written binary serialization. Application models do NOT
+ * implement this — annotate them {@link Portable} and the APT generates their serializer.
+ * Implement this interface only when a class needs custom serialization logic outside the
+ * annotation processor (rare; used mainly by framework-internal tests), registering it via
+ * {@link BinaryRegistry#register(String, java.util.function.Supplier)}.
  *
  * <p><b>AI Agent Execution Notes:</b></p>
  * <ul>
- *   <li><b>Compile-time Code Generation:</b> Annotation processing (`zeroz4j-apt`) generates serializer delegates for
- *       classes marked with {@link BinaryModel}. Default implementations of {@link #writeToBuffer} and {@link #readFromBuffer}
- *       throw {@link UnsupportedOperationException} if invoked directly without a registered {@link BinarySerializerDelegate}.</li>
+ *   <li><b>Not Required:</b> {@link Portable} models need no interface; serialization is
+ *       dispatched via generated {@link BinarySerializerDelegate} instances in {@link BinaryRegistry}.</li>
  *   <li><b>State Mutations:</b> Method calls mutate either the target {@link GrowableBuffer} output during serialization
  *       or the implementing instance's internal field state during deserialization.</li>
  * </ul>

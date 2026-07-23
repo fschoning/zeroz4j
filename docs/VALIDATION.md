@@ -1,6 +1,6 @@
 # Validation: Annotate Once, Enforce Everywhere
 
-Zeroz4j validation lives as annotations on your `@BinaryModel` POJOs — the single place your domain rules belong — and is enforced on **both tiers** from that one declaration:
+Zeroz4j validation lives as annotations on your `@Portable` POJOs — the single place your domain rules belong — and is enforced on **both tiers** from that one declaration:
 
 * the **Wasm client** uses the rules for live form feedback (the binder),
 * the **server** applies them automatically to every incoming RMI argument and every client-written shared signal value — so the rules hold even against a client that bypassed your UI entirely.
@@ -10,8 +10,8 @@ No reflection is involved: the annotation processor generates a `<Model>_Rules` 
 ## Declaring rules
 
 ```java
-@BinaryModel
-public class Registration implements BinaryPackable {
+@Portable
+public class Registration {
     @NotBlank @Size(min = 2, max = 40)
     private String fullName;
 

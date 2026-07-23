@@ -17,7 +17,7 @@
  */
 package com.zeroz4j.apt;
 
-import com.zeroz4j.api.BinaryModel;
+import com.zeroz4j.api.Portable;
 import com.zeroz4j.api.RmiService;
 import com.zeroz4j.api.validation.Max;
 import com.zeroz4j.api.validation.Min;
@@ -39,20 +39,20 @@ import java.util.*;
 /**
  * Annotation Processor (APT) for zeroz4j compile-time code generation.
  *
- * <p>Scans for classes annotated with {@link BinaryModel} and interfaces annotated with {@link RmiService}.</p>
+ * <p>Scans for classes annotated with {@link Portable} and interfaces annotated with {@link RmiService}.</p>
  *
  * <p>Generates high-performance binary serializers ({@code <Model>_Serializer}), client RMI stubs ({@code <Service>_Stub}),
  * and SPI registrars ({@code BinaryPackableRegistrar}) registered via {@code META-INF/services/com.zeroz4j.api.BinaryRegistrar}.</p>
  *
  * <p><b>AI Agent Execution Notes:</b></p>
  * <ul>
- *   <li><b>AOT Serializer Generation:</b> Inspects fields, getters, and setters of {@code @BinaryModel} classes. Generates static {@code write} and {@code read} methods using primitive byte buffers.</li>
+ *   <li><b>AOT Serializer Generation:</b> Inspects fields, getters, and setters of {@code @Portable} classes. Generates static {@code write} and {@code read} methods using primitive byte buffers.</li>
  *   <li><b>RMI Stub Generation:</b> Inspects methods of {@code @RmiService} interfaces. Generates strongly typed proxy stubs delegating calls to {@link com.zeroz4j.api.RmiClientExecutor#executeCall}.</li>
  *   <li><b>SPI Registration:</b> Generates {@code com.zeroz4j.generated.BinaryPackableRegistrar} class and corresponding ServiceLoader config file in {@code META-INF/services}.</li>
  * </ul>
  */
 @SupportedAnnotationTypes({
-    "com.zeroz4j.api.BinaryModel",
+    "com.zeroz4j.api.Portable",
     "com.zeroz4j.api.RmiService"
 })
 public class RmiAnnotationProcessor extends AbstractProcessor {
@@ -78,7 +78,7 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
      * @param roundEnv    round environment context
      * @return true if annotations were claimed and processed
      *
-     * <p><b>Under the hood:</b> Queries {@code roundEnv.getElementsAnnotatedWith(BinaryModel.class)} and invokes {@link #generateSerializer}.
+     * <p><b>Under the hood:</b> Queries {@code roundEnv.getElementsAnnotatedWith(Portable.class)} and invokes {@link #generateSerializer}.
      * Queries {@code roundEnv.getElementsAnnotatedWith(RmiService.class)} and invokes {@link #generateStub}.
      * Generates SPI registrar via {@link #generateRegistrar()}.</p>
      */
@@ -91,8 +91,8 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
         ProcessingEnvironment env = processingEnv;
         Types typeUtils = env.getTypeUtils();
 
-        // Process BinaryModels
-        Set<? extends Element> models = roundEnv.getElementsAnnotatedWith(BinaryModel.class);
+        // Process Portables
+        Set<? extends Element> models = roundEnv.getElementsAnnotatedWith(Portable.class);
         for (Element element : models) {
             if (element.getKind() == ElementKind.CLASS) {
                 TypeElement typeElement = (TypeElement) element;
@@ -207,12 +207,12 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
             writer.write("        buffer.putChar(" + readExpr + ");\n");
         } else if (typeStr.equals("java.lang.String")) {
             writer.write("        BinarySerializer.writeString(buffer, " + readExpr + ");\n");
-        } else if (isBinaryPackable(field.type)) {
+        } else if (isPortable(field.type)) {
             writer.write("        if (" + readExpr + " == null) {\n");
             writer.write("            buffer.put((byte) 0);\n");
             writer.write("        } else {\n");
             writer.write("            buffer.put((byte) 1);\n");
-            writer.write("            " + readExpr + ".writeToBuffer(buffer, mapper);\n");
+            writer.write("            " + typeStr + "_Serializer.write(" + readExpr + ", buffer, mapper);\n");
             writer.write("        }\n");
         } else {
             // Fallback
@@ -243,10 +243,10 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
             writer.write("        " + writeTarget + "buffer.getChar()" + suffix + ";\n");
         } else if (typeStr.equals("java.lang.String")) {
             writer.write("        " + writeTarget + "BinarySerializer.readString(buffer)" + suffix + ";\n");
-        } else if (isBinaryPackable(field.type)) {
+        } else if (isPortable(field.type)) {
             writer.write("        if (buffer.get() != 0) {\n");
             writer.write("            " + typeStr + " nested = new " + typeStr + "();\n");
-            writer.write("            nested.readFromBuffer(buffer, mapper);\n");
+            writer.write("            " + typeStr + "_Serializer.read(nested, buffer, mapper);\n");
             writer.write("            " + writeTarget + "nested" + suffix + ";\n");
             writer.write("        } else {\n");
             writer.write("            " + writeTarget + "null" + suffix + ";\n");
@@ -642,17 +642,15 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
         }
     }
 
-    private boolean isBinaryPackable(TypeMirror type) {
+    private boolean isPortable(TypeMirror type) {
         if (type instanceof DeclaredType) {
             TypeElement typeElem = (TypeElement) ((DeclaredType) type).asElement();
-            for (TypeMirror iface : typeElem.getInterfaces()) {
-                if (iface.toString().equals("com.zeroz4j.api.BinaryPackable")) {
-                    return true;
-                }
+            if (typeElem.getAnnotation(Portable.class) != null) {
+                return true;
             }
             TypeMirror superclass = typeElem.getSuperclass();
             if (superclass != null && !superclass.toString().equals("java.lang.Object")) {
-                return isBinaryPackable(superclass);
+                return isPortable(superclass);
             }
         }
         return false;

@@ -2,8 +2,8 @@
 
 When developing an application with Zeroz4j, you are stepping into a unified, zero-impedance Java stack. There are no REST APIs, no JSON, no ORMs, and no JavaScript. To navigate this architecture, here are the 10 core concepts you need to understand:
 
-## 1. `@BinaryModel`
-Every domain model or entity that needs to be transmitted between the client and server must be annotated with `@BinaryModel`. This triggers the `zeroz4j-apt` annotation processor to generate an ultra-fast binary serializer at compile-time.
+## 1. `@Portable`
+Every domain model or entity that needs to be transmitted between the client and server must be annotated with `@Portable`. This triggers the `zeroz4j-apt` annotation processor to generate an ultra-fast binary serializer at compile-time.
 
 ## 2. `@RmiService`
 Used to annotate your service interfaces. Any interface annotated with `@RmiService` will have a client-side Wasm stub generated automatically. You simply invoke these interface methods on the client, and they execute on the server over the persistent WebSocket.

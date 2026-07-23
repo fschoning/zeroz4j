@@ -47,7 +47,7 @@ Method — follow it exactly:
 6. Write a README.md for the example: what it demonstrates, how to run it.
 
 Framework rules (violating these produces silent runtime failures):
-- Wire models: annotate @BinaryModel, implement BinaryPackable, provide a public
+- Wire models: annotate @Portable (one annotation, no interface), provide a public
   no-arg constructor plus getters/setters for every field. Add value-based
   equals/hashCode when the client needs to deduplicate instances.
 - Services: @RmiService interface in the shared module; the APT generates a
@@ -71,7 +71,7 @@ Framework rules (violating these produces silent runtime failures):
   server accepts (roles + validation annotations) or rejects with a
   corrective update.
 - Validation: declare field constraints (@NotBlank, @Size, @Min, @Max from
-  com.zeroz4j.api.validation) on @BinaryModel fields. The APT generates
+  com.zeroz4j.api.validation) on @Portable fields. The APT generates
   <Model>_Rules; attach rules to UI fields with field.withRule(...) for live
   feedback, and rely on the server enforcing the same annotations on every
   RMI argument automatically — never re-implement per-field checks by hand.
@@ -105,7 +105,7 @@ TASK: Build the example "form-signup" under zeroz4j-examples/form-signup.
 Reference example to copy: zeroz4j-examples/todo-signals.
 
 A signup form for a fictional developer conference:
-- Shared model Registration (@BinaryModel) carrying the form data, with the
+- Shared model Registration (@Portable) carrying the form data, with the
   rules declared as validation annotations ON THE MODEL:
   * fullName: @NotBlank @Size(min = 2, max = 60)
   * email: @NotBlank @Size(min = 5, max = 120)
@@ -151,7 +151,7 @@ TASK: Build the example "job-monitor" under zeroz4j-examples/job-monitor.
 Reference example to copy: zeroz4j-examples/chat-events.
 
 Simulate monitoring a long-running deployment pipeline:
-- Shared model JobStatus (@BinaryModel): jobId (long), phase (String: one of
+- Shared model JobStatus (@Portable): jobId (long), phase (String: one of
   "Queued", "Building", "Testing", "Deploying", "Done", "Failed"), percent (int
   0–100), message (String), running (boolean). Value-based equals/hashCode and
   a static JobStatus idle() factory.
@@ -204,7 +204,7 @@ TASK: Build the example "inventory-crud" under zeroz4j-examples/inventory-crud.
 Reference example to copy: zeroz4j-examples/todo-signals.
 
 A small warehouse inventory manager:
-- Shared model Product (@BinaryModel): id (long), name, category (String),
+- Shared model Product (@Portable): id (long), name, category (String),
   quantity (int), unitPrice (double). Server assigns ids from a counter stored
   in the DataRoot (persist the counter too).
 - @RmiService ProductService { List<Product> list(); Product save(Product p);
@@ -240,7 +240,7 @@ TASK: Build the example "secure-admin" under zeroz4j-examples/secure-admin.
 Reference example to copy: zeroz4j-examples/chat-events.
 
 A support-ticket queue with two roles:
-- Shared model Ticket (@BinaryModel): id, title, description, status
+- Shared model Ticket (@Portable): id, title, description, status
   ("Open"/"Closed"), reporter (String).
 - @RmiService @Secured TicketService:
   * List<Ticket> myTickets();            // tickets reported by the caller
@@ -281,7 +281,7 @@ TASK: Build the example "metrics-live" under zeroz4j-examples/metrics-live.
 Reference example to copy: zeroz4j-examples/chat-livesync.
 
 A live server-metrics dashboard, fed by a fake metrics source:
-- Shared model LiveMetrics (@LiveSync @BinaryModel): cpuPercent (int),
+- Shared model LiveMetrics (@LiveSync @Portable): cpuPercent (int),
   requestsPerSecond (int), activeUsers (int), lastUpdated (long), plus a
   List<Integer> of the last 30 cpu samples for a sparkline.
 - @RmiService MetricsService { LiveMetrics getMetrics(); }.
@@ -323,7 +323,7 @@ A multi-user kanban board ("zeroboard") with three fixed columns: Backlog,
 In Progress, Done.
 
 Shared module:
-- CardItem (@BinaryModel): id, title, column (String), createdBy, createdAt.
+- CardItem (@Portable): id, title, column (String), createdBy, createdAt.
   Value-based equals/hashCode.
 - BoardEvents: EventTopic<CardItem> CARD_UPSERTED ("board.cardUpserted"),
   EventTopic<Long> CARD_DELETED ("board.cardDeleted") — deleting broadcasts the id.
@@ -381,7 +381,7 @@ LiveMutexRpc service) before writing any code.
 
 A team profile card that several users can view live but only one can edit at
 a time:
-- Shared model TeamProfile (@LiveSync @BinaryModel): teamName, mission
+- Shared model TeamProfile (@LiveSync @Portable): teamName, mission
   (String), headcount (int), editingBy (String, empty when nobody edits),
   version (long).
 - @RmiService ProfileService:

@@ -17,15 +17,14 @@
  */
 package com.zeroz4j.example.model;
 
-import com.zeroz4j.api.BinaryModel;
-import com.zeroz4j.api.BinaryPackable;
+import com.zeroz4j.api.Portable;
 
 /**
  * Example Data Transfer Object representing user information.
- * Marked with @BinaryModel so the APT generates a serializer companion.
+ * Marked with @Portable so the APT generates a serializer companion.
  */
-@BinaryModel
-public class UserInfo implements BinaryPackable {
+@Portable
+public class UserInfo {
     private String name;
     private int score;
     private boolean active;

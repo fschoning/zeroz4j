@@ -17,11 +17,10 @@
  */
 package com.zeroz4j.example.model;
 
-import com.zeroz4j.api.BinaryModel;
-import com.zeroz4j.api.BinaryPackable;
+import com.zeroz4j.api.Portable;
 
-@BinaryModel
-public class GalleryItem implements BinaryPackable {
+@Portable
+public class GalleryItem {
     private int id;
     private String name;
     private String category;

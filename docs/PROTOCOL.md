@@ -84,7 +84,7 @@ ZeroZ4j serializes data dynamically using `BinarySerializer`. Each serialized ar
 | `0x04` | Float | 4 bytes |
 | `0x05` | Boolean | 1 byte (0 or 1) |
 | `0x06` | String | 4-byte length + UTF-8 bytes |
-| `0x07` | Object | `[String]` ClassName + Custom bytes from `BinaryPackable.writeToBuffer()` |
+| `0x07` | Object | `[String]` ClassName + Field bytes from the generated `<Model>_Serializer` |
 | `0x08` | Short | 2 bytes |
 | `0x09` | Byte | 1 byte |
 | `0x0A` | Character | 2 bytes |

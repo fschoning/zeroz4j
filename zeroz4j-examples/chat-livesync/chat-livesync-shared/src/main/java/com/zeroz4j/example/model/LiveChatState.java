@@ -1,11 +1,11 @@
 package com.zeroz4j.example.model;
 
-import com.zeroz4j.api.BinaryModel;
+import com.zeroz4j.api.Portable;
 import com.zeroz4j.api.LiveSync;
 import java.util.ArrayList;
 import java.util.List;
 
-@BinaryModel
+@Portable
 @LiveSync
 public class LiveChatState {
     private List<ChatMessage> messages = new ArrayList<>();
