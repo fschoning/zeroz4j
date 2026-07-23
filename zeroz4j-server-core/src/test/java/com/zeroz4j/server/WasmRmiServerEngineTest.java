@@ -72,13 +72,31 @@ public class WasmRmiServerEngineTest {
         String adminMethod();
 
         void throwError();
+
+        String scopedCall();
+    }
+
+    /** Reproduces the per-tenant EmbeddedStorageManager producer pattern. */
+    @jakarta.enterprise.context.RequestScoped
+    public static class ScopedProbe {
+        public String ping() {
+            return "request-scope-active";
+        }
     }
 
     @ApplicationScoped
     public static class MyTestServiceImpl implements MyTestService {
+        @Inject
+        ScopedProbe scopedProbe;
+
         @Override
         public String sayHello(String name) {
             return "Hello " + name;
+        }
+
+        @Override
+        public String scopedCall() {
+            return scopedProbe.ping();
         }
 
         @Override
@@ -103,7 +121,8 @@ public class WasmRmiServerEngineTest {
             SyncEngine.class,
             ObjectMapperProducer.class,
             LiveMutexManager.class,
-            MyTestServiceImpl.class
+            MyTestServiceImpl.class,
+            ScopedProbe.class
     );
 
     @Inject
@@ -210,6 +229,26 @@ public class WasmRmiServerEngineTest {
         int numRoles = buf.getInt();
         assertEquals(1, numRoles);
         assertEquals("user", BinarySerializer.readString(buf));
+    }
+
+    @Test
+    public void testRequestScopedBeansResolveDuringRmiCalls() throws Exception {
+        engine.onOpen(fakeSession, new FakeEndpointConfig());
+
+        GrowableBuffer buffer = new GrowableBuffer();
+        buffer.putInt(300);
+        BinarySerializer.writeString(buffer, MyTestService.class.getName());
+        BinarySerializer.writeString(buffer, "scopedCall");
+        buffer.putInt(0);
+
+        fakeSession.basic.latch = new CountDownLatch(1);
+        engine.processIncomingBinaryPayload(ByteBuffer.wrap(buffer.toByteArray()), fakeSession);
+        assertTrue(fakeSession.basic.latch.await(2, TimeUnit.SECONDS));
+
+        ByteBuffer response = fakeSession.basic.sentBuffers.get(1);
+        assertEquals(300, response.getInt());
+        assertEquals((byte) 0x01, response.get(), "Must be a success frame, not ContextNotActiveException");
+        assertEquals("request-scope-active", BinarySerializer.readValue(response, mapper));
     }
 
     @Test

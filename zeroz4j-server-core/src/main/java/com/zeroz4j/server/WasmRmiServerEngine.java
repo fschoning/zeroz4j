@@ -478,6 +478,31 @@ public class WasmRmiServerEngine implements EventPublisher {
         try {
             sessionExecutor.submit(() -> {
 
+                // Activate a CDI request context for this invocation: virtual threads have
+                // none, and @RequestScoped beans (e.g. the per-tenant EmbeddedStorageManager
+                // producer) must resolve inside service calls. A servlet container did this
+                // implicitly; here it is the engine's job.
+                jakarta.enterprise.context.control.RequestContextController requestContext =
+                    CDI.current().select(jakarta.enterprise.context.control.RequestContextController.class).get();
+                boolean contextActivated = requestContext.activate();
+                try {
+                    dispatchFrame(data, session);
+                } finally {
+                    if (contextActivated) {
+                        requestContext.deactivate();
+                    }
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            LOG.warning("[zeroz4j] Dropped incoming message because server is shutting down.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void dispatchFrame(byte[] data, Session session) {
+        {
+            {
+
                 ByteBuffer buffer = ByteBuffer.wrap(data);
                 int messageId = buffer.getInt();
 
@@ -599,9 +624,7 @@ public class WasmRmiServerEngine implements EventPublisher {
                         LOG.warning("[zeroz4j] Failed to send error: " + ioEx.getMessage());
                     }
                 }
-            });
-        } catch (RejectedExecutionException e) {
-            LOG.warning("[zeroz4j] Dropped incoming message because server is shutting down.");
+            }
         }
     }
 }
