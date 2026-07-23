@@ -109,7 +109,7 @@ public class BinaryRegistry {
     public static Object create(String className) {
         Supplier<Object> supplier = suppliers.get(className);
         if (supplier == null) {
-            throw new IllegalArgumentException("Unknown @Portable class: " + className 
+            throw new IllegalArgumentException("Unknown @DataModel class: " + className 
                 + ". Make sure it is registered.");
         }
         return supplier.get();

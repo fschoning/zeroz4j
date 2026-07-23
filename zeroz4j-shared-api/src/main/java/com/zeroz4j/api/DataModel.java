@@ -38,12 +38,12 @@ import java.lang.annotation.Target;
  *   <li><b>Compile-time Code Generation:</b> The zeroz4j-apt processor generates a binary
  *       serializer ({@code <Model>_Serializer}), validation rules ({@code <Model>_Rules},
  *       when constraint annotations are present), and registrar entries for every
- *       {@code @Portable} class.</li>
+ *       {@code @DataModel} class.</li>
  *   <li><b>Wire Identity:</b> Instances travel with their runtime class name; the
  *       transport encoding is an internal detail applications never see.</li>
  * </ul>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
-public @interface Portable {
+public @interface DataModel {
 }

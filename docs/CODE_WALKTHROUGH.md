@@ -3,12 +3,12 @@
 Zero impedance means your Java objects flow from the database to the browser without translation layers.
 
 ### Step 1: Declare the Domain Model
-Annotate your models with `@Portable` — one annotation, nothing else. Compile-time serializers will be generated to write/read fields without reflection:
+Annotate your models with `@DataModel` — one annotation, nothing else. Compile-time serializers will be generated to write/read fields without reflection:
 
 ```java
-import com.zeroz4j.api.Portable;
+import com.zeroz4j.api.DataModel;
 
-@Portable
+@DataModel
 public class UserInfo {
     private String name;
     private int score;

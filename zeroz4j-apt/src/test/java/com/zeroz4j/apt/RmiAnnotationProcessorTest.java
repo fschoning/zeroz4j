@@ -43,8 +43,8 @@ public class RmiAnnotationProcessorTest {
 
         // Create a model and service
         String modelSrc = "package com.test;\n" +
-                "import com.zeroz4j.api.Portable;\n" +
-                "@Portable\n" +
+                "import com.zeroz4j.api.DataModel;\n" +
+                "@DataModel\n" +
                 "public class MyModel {\n" +
                 "    public String name;\n" +
                 "}\n";
@@ -169,9 +169,9 @@ public class RmiAnnotationProcessorTest {
         Files.createDirectories(srcDir.resolve("com/test"));
 
         String modelSrc = "package com.test;\n" +
-                "import com.zeroz4j.api.Portable;\n" +
+                "import com.zeroz4j.api.DataModel;\n" +
                 "import com.zeroz4j.api.validation.*;\n" +
-                "@Portable\n" +
+                "@DataModel\n" +
                 "public class Registration {\n" +
                 "    @NotBlank @Size(min = 2, max = 40)\n" +
                 "    private String fullName;\n" +

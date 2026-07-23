@@ -20,9 +20,9 @@ package com.zeroz4j.example.model;
 
 import java.util.ArrayList;
 import java.util.List;
-import com.zeroz4j.api.Portable;
+import com.zeroz4j.api.DataModel;
 
-@Portable
+@DataModel
 public class VisualResult {
     public int rowCount;
     public int columnCount;

@@ -17,13 +17,13 @@
  */
 package com.zeroz4j.example.model;
 
-import com.zeroz4j.api.Portable;
+import com.zeroz4j.api.DataModel;
 
 /**
  * Example Data Transfer Object representing user information.
- * Marked with @Portable so the APT generates a serializer companion.
+ * Marked with @DataModel so the APT generates a serializer companion.
  */
-@Portable
+@DataModel
 public class UserInfo {
     private String name;
     private int score;

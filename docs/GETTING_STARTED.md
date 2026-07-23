@@ -48,9 +48,9 @@ With ZeroZ4J, you avoid boilerplate HTTP mapping, JSON translation, and ORM sche
 Define your data structure. It automatically becomes serializable and persistable.
 
 ```java
-import com.zeroz4j.api.Portable;
+import com.zeroz4j.api.DataModel;
 
-@Portable
+@DataModel
 public class ChatMessage {
     private String author;
     private String text;

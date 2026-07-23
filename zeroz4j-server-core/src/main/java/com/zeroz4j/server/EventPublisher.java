@@ -31,7 +31,7 @@ import com.zeroz4j.api.EventTopic;
  * }</pre>
  *
  * <p>Delivery semantics: fire-and-forget broadcast to all currently connected sessions,
- * at most once, no replay. Payloads must be wire-serializable ({@code @Portable} classes
+ * at most once, no replay. Payloads must be wire-serializable ({@code @DataModel} classes
  * or types supported by {@code BinarySerializer}).</p>
  *
  * <p><b>AI Agent Execution Notes:</b></p>

@@ -23,7 +23,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a {@link Portable} class as a Live Model eligible for
+ * Marks a {@link DataModel} class as a Live Model eligible for
  * transparent, real-time bidirectional state synchronization between client (TeaVM Wasm)
  * and server (JVM) via the zeroz4j {@code SyncEngine}.
  *

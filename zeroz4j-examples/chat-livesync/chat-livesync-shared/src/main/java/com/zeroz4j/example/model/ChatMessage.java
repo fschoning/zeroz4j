@@ -17,9 +17,9 @@
  */
 package com.zeroz4j.example.model;
 
-import com.zeroz4j.api.Portable;
+import com.zeroz4j.api.DataModel;
 
-@Portable
+@DataModel
 public class ChatMessage {
     private String sender;
     private String text;
