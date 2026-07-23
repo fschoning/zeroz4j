@@ -270,11 +270,20 @@ A support-ticket queue with two roles:
   close()/allTickets() for non-admins (client-side hiding is cosmetic; the
   @RolesAllowed annotations are the actual security boundary).
 - Handle the rejection gracefully: catching the RMI error and showing an Alert.
+- Maintenance banner via a client-writable shared signal: declare
+      Signals.sharedWritable("support.banner", "", "admin")
+  in the shared module. Every user renders the banner text at the top of the
+  view via an Effect (hidden when empty). Admins get a TextField bound to the
+  signal (bindValue) — typing updates every connected client live. The role
+  gate is enforced SERVER-side: a non-admin write is snapped back by a
+  corrective update, not merely hidden in the UI.
 
 ACCEPTANCE:
 - mvn install passes from the root.
 - A non-admin user sees no admin panel AND gets a server-side error (surfaced as
   an Alert, not a crash) if close() is invoked anyway.
+- Banner text set by an admin appears in a non-admin window without a reload;
+  a forced non-admin signal write reverts within a round-trip.
 - README documents which users/roles exist and how to log in as each.
 ```
 

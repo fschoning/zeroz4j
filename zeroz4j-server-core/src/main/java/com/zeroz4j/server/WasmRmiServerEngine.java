@@ -307,7 +307,7 @@ public class WasmRmiServerEngine implements EventPublisher {
      * canonical state, reverting its optimistic local change.</p>
      */
     @SuppressWarnings("unchecked")
-    private void handleLiveMutation(ByteBuffer buffer, Session session) {
+    void handleLiveMutation(ByteBuffer buffer, Session session) {
         int payloadStart = buffer.position();
 
         Object proposed;
