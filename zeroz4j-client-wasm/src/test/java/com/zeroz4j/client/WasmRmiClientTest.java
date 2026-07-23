@@ -180,4 +180,109 @@ public class WasmRmiClientTest {
         WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
         assertEquals(0, receivedPushes.size(), "Should not receive pushes after clear");
     }
+
+    @Test
+    public void testRemoveSinglePushListener() throws Exception {
+        List<Object> first = new ArrayList<>();
+        List<Object> second = new ArrayList<>();
+        WasmRmiClient.PushListener<Object> firstListener = first::add;
+        WasmRmiClient.PushListener<Object> secondListener = second::add;
+
+        WasmRmiClient.registerPushListener("removeTopic", firstListener);
+        WasmRmiClient.registerPushListener("removeTopic", secondListener);
+
+        GrowableBuffer pushFrame = new GrowableBuffer();
+        pushFrame.putInt(0);
+        pushFrame.put((byte) 0x02); // PUSH
+        BinarySerializer.writeString(pushFrame, "removeTopic");
+        BinarySerializer.writeValue(pushFrame, "payload", WasmRmiClient.MAPPER);
+
+        WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+        assertEquals(1, first.size());
+        assertEquals(1, second.size());
+
+        WasmRmiClient.removePushListener("removeTopic", firstListener);
+
+        WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+        assertEquals(1, first.size(), "Removed listener should not receive further pushes");
+        assertEquals(2, second.size(), "Remaining listener should keep receiving pushes");
+
+        WasmRmiClient.clearPushListeners("removeTopic");
+    }
+
+    @Test
+    public void testServerEventsOnAndDispose() throws Exception {
+        com.zeroz4j.api.EventTopic<String> topic =
+                com.zeroz4j.api.EventTopic.of(String.class, "events.test");
+
+        List<String> received = new ArrayList<>();
+        com.zeroz4j.ui.signals.Effect.Disposable subscription =
+                ServerEvents.on(topic, received::add);
+
+        GrowableBuffer pushFrame = new GrowableBuffer();
+        pushFrame.putInt(0);
+        pushFrame.put((byte) 0x02); // PUSH
+        BinarySerializer.writeString(pushFrame, topic.name());
+        BinarySerializer.writeValue(pushFrame, "hello", WasmRmiClient.MAPPER);
+
+        WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+        assertEquals(List.of("hello"), received);
+
+        subscription.dispose();
+        WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+        assertEquals(1, received.size(), "Disposed subscription should not receive pushes");
+    }
+
+    @Test
+    public void testServerEventsLatest() throws Exception {
+        com.zeroz4j.api.EventTopic<String> topic =
+                com.zeroz4j.api.EventTopic.of(String.class, "events.latest");
+
+        ServerEvents.LatestSignal<String> latest = ServerEvents.latest(topic, "none");
+        assertEquals("none", latest.get());
+
+        List<String> observed = new ArrayList<>();
+        com.zeroz4j.ui.signals.Effect.Disposable effect =
+                com.zeroz4j.ui.signals.Effect.create(() -> observed.add(latest.get()));
+
+        GrowableBuffer pushFrame = new GrowableBuffer();
+        pushFrame.putInt(0);
+        pushFrame.put((byte) 0x02); // PUSH
+        BinarySerializer.writeString(pushFrame, topic.name());
+        BinarySerializer.writeValue(pushFrame, "online", WasmRmiClient.MAPPER);
+
+        WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+        assertEquals("online", latest.get());
+        assertEquals(List.of("none", "online"), observed, "Effect should re-run on push");
+
+        effect.dispose();
+        latest.dispose();
+    }
+
+    @Test
+    public void testPendingRequestTimeout() throws Exception {
+        WasmRmiClient.setRequestTimeout(1);
+        try {
+            FakeAsyncCallback callback = new FakeAsyncCallback();
+            WasmRmiClient.executeCall("SlowService", "neverAnswers", new Object[0], callback);
+            assertEquals(1, WasmRmiClient.pendingRequests.size());
+
+            Thread.sleep(20);
+
+            // Any incoming frame triggers the sweep; use a push on an unrelated topic.
+            GrowableBuffer pushFrame = new GrowableBuffer();
+            pushFrame.putInt(0);
+            pushFrame.put((byte) 0x02); // PUSH
+            BinarySerializer.writeString(pushFrame, "unrelated.topic");
+            BinarySerializer.writeValue(pushFrame, "x", WasmRmiClient.MAPPER);
+            WasmRmiClient.routeIncomingMessage(pushFrame.toByteArray());
+
+            assertTrue(callback.completed, "Stale request should be completed with an error");
+            assertNotNull(callback.error);
+            assertTrue(callback.error.getMessage().contains("timed out"));
+            assertEquals(0, WasmRmiClient.pendingRequests.size());
+        } finally {
+            WasmRmiClient.setRequestTimeout(30_000);
+        }
+    }
 }

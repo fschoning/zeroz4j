@@ -112,4 +112,60 @@ public class RmiAnnotationProcessorTest {
         assertTrue(serializerContent.contains("class MyModel_Serializer"));
         assertTrue(serializerContent.contains("BinarySerializer.writeString"));
     }
+
+    @Test
+    public void testStubIncludesInheritedInterfaceMethods(@TempDir Path tempDir) throws Exception {
+        Path srcDir = tempDir.resolve("src");
+        Files.createDirectories(srcDir.resolve("com/test"));
+
+        String baseSrc = "package com.test;\n" +
+                "public interface BaseService {\n" +
+                "    String ping();\n" +
+                "    default String version() { return \"1\"; }\n" +
+                "}\n";
+
+        String serviceSrc = "package com.test;\n" +
+                "import com.zeroz4j.api.RmiService;\n" +
+                "@RmiService\n" +
+                "public interface ExtendedService extends BaseService {\n" +
+                "    int count();\n" +
+                "}\n";
+
+        Files.writeString(srcDir.resolve("com/test/BaseService.java"), baseSrc);
+        Files.writeString(srcDir.resolve("com/test/ExtendedService.java"), serviceSrc);
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+
+        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(Arrays.asList(
+                srcDir.resolve("com/test/BaseService.java").toFile(),
+                srcDir.resolve("com/test/ExtendedService.java").toFile()
+        ));
+
+        Path outDir = tempDir.resolve("out");
+        Files.createDirectories(outDir);
+
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        JavaCompiler.CompilationTask task = compiler.getTask(
+                null,
+                fileManager,
+                diagnostics,
+                Arrays.asList("-d", outDir.toString(), "-s", outDir.toString()),
+                null,
+                compilationUnits
+        );
+
+        task.setProcessors(Collections.singletonList(new RmiAnnotationProcessor()));
+
+        boolean success = task.call();
+        for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+            System.err.println(diagnostic);
+        }
+        assertTrue(success, "Compilation should succeed");
+
+        String stubContent = Files.readString(outDir.resolve("com/test/ExtendedService_Stub.java"));
+        assertTrue(stubContent.contains("\"count\""), "Stub should implement its own method");
+        assertTrue(stubContent.contains("\"ping\""), "Stub should implement the inherited method");
+        assertTrue(!stubContent.contains("version"), "Stub must not override default methods");
+    }
 }

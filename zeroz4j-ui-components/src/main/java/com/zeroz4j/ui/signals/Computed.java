@@ -35,12 +35,13 @@ import java.util.List;
  *
  * @param <T> result value type
  */
-public class Computed<T> implements Signal<T> {
+public class Computed<T> implements ObservableSignal<T> {
 
     private final Supplier<T> computation;
     private T cachedValue;
     private boolean dirty = true;
-    private final List<Signal<?>> dependencies = new ArrayList<>();
+    private boolean disposed = false;
+    private final List<ObservableSignal<Object>> dependencies = new ArrayList<>();
 
     // S6 fix: typed Consumer<Object> instead of raw Consumer.
     @SuppressWarnings("unchecked")
@@ -78,14 +79,9 @@ public class Computed<T> implements Signal<T> {
         return cachedValue;
     }
 
-    @SuppressWarnings("unchecked")
     private void evaluate() {
-        for (Signal<?> dep : dependencies) {
-            if (dep instanceof ValueSignal) {
-                ((ValueSignal) dep).removeListener(invalidator);
-            } else if (dep instanceof Computed) {
-                ((Computed) dep).removeListener(invalidator);
-            }
+        for (ObservableSignal<Object> dep : dependencies) {
+            dep.removeListener(invalidator);
         }
         dependencies.clear();
 
@@ -100,12 +96,32 @@ public class Computed<T> implements Signal<T> {
 
     @SuppressWarnings("unchecked")
     private void addDependency(Signal<?> dep) {
-        dependencies.add(dep);
-        if (dep instanceof ValueSignal) {
-            ((ValueSignal) dep).addListener(invalidator);
-        } else if (dep instanceof Computed) {
-            ((Computed) dep).addListener(invalidator);
+        if (disposed) {
+            return;
         }
+        if (dep instanceof ObservableSignal) {
+            ObservableSignal<Object> observable = (ObservableSignal<Object>) dep;
+            dependencies.add(observable);
+            observable.addListener(invalidator);
+        }
+    }
+
+    /**
+     * Disposes this computed signal, unsubscribing it from all upstream dependencies and
+     * dropping its downstream listeners.
+     *
+     * <p>After disposal the signal stops receiving invalidations: reads return the last
+     * computed value (recomputing once if it was dirty at disposal time) and no listeners
+     * are notified. Call this when the owning view or component is permanently removed
+     * to avoid upstream signals holding a strong reference to this computation.</p>
+     */
+    public void dispose() {
+        disposed = true;
+        for (ObservableSignal<Object> dep : dependencies) {
+            dep.removeListener(invalidator);
+        }
+        dependencies.clear();
+        listeners.clear();
     }
 
     /**
@@ -113,6 +129,7 @@ public class Computed<T> implements Signal<T> {
      *
      * @param listener change listener callback
      */
+    @Override
     public void addListener(Consumer<T> listener) {
         listeners.add(listener);
     }
@@ -122,6 +139,7 @@ public class Computed<T> implements Signal<T> {
      *
      * @param listener change listener callback
      */
+    @Override
     public void removeListener(Consumer<T> listener) {
         listeners.remove(listener);
     }

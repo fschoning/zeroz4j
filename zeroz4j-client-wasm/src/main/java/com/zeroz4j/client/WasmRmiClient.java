@@ -55,6 +55,8 @@ public class WasmRmiClient {
     public static final ObjectMapper MAPPER = new ObjectMapper();
     static final AtomicInteger messageIdGenerator = new AtomicInteger(0);
     static final Map<Integer, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
+    /** Max age of an unanswered request before its callback is failed; <= 0 disables the sweep. */
+    static long requestTimeoutMs = 30_000;
     static final Map<String, List<PushListener<Object>>> pushListeners = new ConcurrentHashMap<>();
     static WasmWebSocketChannel networkChannel;
     private static PlatformScheduler uiScheduler;
@@ -113,8 +115,36 @@ public class WasmRmiClient {
     @Async
     public static native Object executeCall(String interfaceName, String methodName, Object[] args);
 
+    /**
+     * Configures how long an unanswered RMI request may stay pending before its suspended
+     * coroutine is resumed with an error. Defaults to 30 seconds; pass 0 or a negative
+     * value to disable timeouts.
+     *
+     * @param timeoutMs maximum pending age in milliseconds
+     */
+    public static void setRequestTimeout(long timeoutMs) {
+        requestTimeoutMs = timeoutMs;
+    }
+
+    static void sweepStaleRequests() {
+        if (requestTimeoutMs <= 0 || pendingRequests.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        for (Map.Entry<Integer, PendingRequest> entry : pendingRequests.entrySet()) {
+            if (now - entry.getValue().createdAtMs > requestTimeoutMs) {
+                PendingRequest stale = pendingRequests.remove(entry.getKey());
+                if (stale != null) {
+                    stale.callback.error(new RuntimeException(
+                        "RMI request " + entry.getKey() + " timed out after " + requestTimeoutMs + " ms"));
+                }
+            }
+        }
+    }
+
     static void executeCall(String interfaceName, String methodName, Object[] args,
                                      AsyncCallback<Object> callback) {
+        sweepStaleRequests();
         int msgId = messageIdGenerator.incrementAndGet() & 0x7FFFFFFF;
         pendingRequests.put(msgId, new PendingRequest(callback, System.currentTimeMillis()));
 
@@ -141,6 +171,7 @@ public class WasmRmiClient {
     }
 
     static void routeIncomingMessage(byte[] rawPayload) {
+        sweepStaleRequests();
         ByteBuffer buffer;
         int correlationId;
         byte frameType;
@@ -233,6 +264,25 @@ public class WasmRmiClient {
     public static <T> void registerPushListener(String topic, PushListener<T> listener) {
         pushListeners.computeIfAbsent(topic, k -> new CopyOnWriteArrayList<>())
                      .add((PushListener<Object>) listener);
+    }
+
+    /**
+     * Removes a single previously registered push listener for the specified topic string.
+     *
+     * @param topic    target topic name string
+     * @param listener the listener instance to remove
+     *
+     * <p><b>Under the hood:</b> Removes {@code listener} from the topic's listener list and
+     * drops the map entry once the list is empty.</p>
+     */
+    public static void removePushListener(String topic, PushListener<?> listener) {
+        List<PushListener<Object>> listeners = pushListeners.get(topic);
+        if (listeners != null) {
+            listeners.remove(listener);
+            if (listeners.isEmpty()) {
+                pushListeners.remove(topic, listeners);
+            }
+        }
     }
 
     /**

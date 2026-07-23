@@ -135,11 +135,10 @@ public class Effect {
         removeAllSubscriptions(subscriptions);
 
         startTracking(signal -> {
-            subscriptions.add(new SignalSubscription(signal, invalidator));
-            if (signal instanceof ValueSignal) {
-                ((ValueSignal) signal).addListener(invalidator);
-            } else if (signal instanceof Computed) {
-                ((Computed) signal).addListener(invalidator);
+            if (signal instanceof ObservableSignal) {
+                ObservableSignal<Object> observable = (ObservableSignal<Object>) signal;
+                subscriptions.add(new SignalSubscription(observable, invalidator));
+                observable.addListener(invalidator);
             }
         });
 
@@ -158,23 +157,18 @@ public class Effect {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static void removeAllSubscriptions(List<SignalSubscription> subscriptions) {
         for (SignalSubscription sub : subscriptions) {
-            if (sub.signal instanceof ValueSignal) {
-                ((ValueSignal) sub.signal).removeListener(sub.listener);
-            } else if (sub.signal instanceof Computed) {
-                ((Computed) sub.signal).removeListener(sub.listener);
-            }
+            sub.signal.removeListener(sub.listener);
         }
         subscriptions.clear();
     }
 
     private static class SignalSubscription {
-        final Signal<?> signal;
+        final ObservableSignal<Object> signal;
         final Consumer<Object> listener;
 
-        SignalSubscription(Signal<?> signal, Consumer<Object> listener) {
+        SignalSubscription(ObservableSignal<Object> signal, Consumer<Object> listener) {
             this.signal = signal;
             this.listener = listener;
         }

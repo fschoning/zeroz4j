@@ -18,7 +18,10 @@
 package com.zeroz4j.ui.signals;
 
 import org.junit.jupiter.api.Test;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -108,5 +111,86 @@ public class SignalTest {
         assertEquals(8, length.get());
 
         disposable.dispose();
+    }
+
+    /**
+     * A custom ObservableSignal implementation (not ValueSignal/Computed) must participate
+     * in Effect dependency tracking — this is the extension contract network-backed
+     * signals like ServerEvents.LatestSignal rely on.
+     */
+    @Test
+    public void testEffectTracksCustomObservableSignal() {
+        class CustomSignal implements ObservableSignal<String> {
+            private String value = "initial";
+            private final List<Consumer<String>> listeners = new ArrayList<>();
+
+            @Override
+            public String get() {
+                Effect.registerDependency(this);
+                return value;
+            }
+
+            @Override
+            public void addListener(Consumer<String> listener) {
+                listeners.add(listener);
+            }
+
+            @Override
+            public void removeListener(Consumer<String> listener) {
+                listeners.remove(listener);
+            }
+
+            void push(String newValue) {
+                value = newValue;
+                for (Consumer<String> listener : new ArrayList<>(listeners)) {
+                    listener.accept(newValue);
+                }
+            }
+        }
+
+        CustomSignal signal = new CustomSignal();
+        List<String> observed = new ArrayList<>();
+
+        Effect.Disposable disposable = Effect.create(() -> observed.add(signal.get()));
+        assertEquals(List.of("initial"), observed);
+
+        signal.push("updated");
+        assertEquals(List.of("initial", "updated"), observed);
+
+        disposable.dispose();
+        signal.push("after-dispose");
+        assertEquals(2, observed.size());
+    }
+
+    @Test
+    public void testComputedDispose() {
+        ValueSignal<Integer> source = new ValueSignal<>(1);
+        Computed<Integer> doubled = new Computed<>(() -> source.get() * 2);
+        assertEquals(2, doubled.get());
+
+        AtomicInteger notifications = new AtomicInteger(0);
+        doubled.addListener(v -> notifications.incrementAndGet());
+
+        source.set(2);
+        assertEquals(1, notifications.get());
+        assertEquals(4, doubled.get());
+
+        doubled.dispose();
+
+        // Upstream changes no longer invalidate or notify
+        source.set(5);
+        assertEquals(1, notifications.get());
+        assertEquals(4, doubled.get(), "Disposed computed keeps its last value");
+
+        // An effect reading a disposed computed must not resurrect subscriptions
+        AtomicInteger effectRuns = new AtomicInteger(0);
+        Effect.Disposable effect = Effect.create(() -> {
+            effectRuns.incrementAndGet();
+            doubled.get();
+        });
+        assertEquals(1, effectRuns.get());
+        source.set(7);
+        assertEquals(1, effectRuns.get(), "Effect must not re-run via a disposed computed");
+        effect.dispose();
     }
 }

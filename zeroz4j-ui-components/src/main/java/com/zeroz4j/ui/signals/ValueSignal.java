@@ -35,7 +35,7 @@ import java.util.function.UnaryOperator;
  *
  * @param <T> value type
  */
-public class ValueSignal<T> implements Signal<T> {
+public class ValueSignal<T> implements ObservableSignal<T> {
 
     private T value;
     private final List<Consumer<T>> listeners = new ArrayList<>();
@@ -91,15 +91,17 @@ public class ValueSignal<T> implements Signal<T> {
      *
      * @param listener change listener
      */
+    @Override
     public void addListener(Consumer<T> listener) {
         listeners.add(listener);
     }
-    
+
     /**
      * Removes a change listener callback.
      *
      * @param listener change listener
      */
+    @Override
     public void removeListener(Consumer<T> listener) {
         listeners.remove(listener);
     }

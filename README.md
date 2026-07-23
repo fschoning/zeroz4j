@@ -100,6 +100,7 @@ This repository contains the core framework and reference implementations.
 * **[Developer Setup & Getting Started Guide](docs/GETTING_STARTED.md)** - Learn how to scaffold a new project using the `zeroz4j-archetype`.
 * **[Code Walkthrough: End-to-End Java](docs/CODE_WALKTHROUGH.md)** - Examples of Models, RMI Interfaces, and Wasm UI binding.
 * **[Detailed Protocol Specification](docs/PROTOCOL.md)** - Deep dive into the binary WebSocket frame structure and architecture.
+* **[Server Events: Typed Push Topics](docs/SERVER_EVENTS.md)** - Broadcasting typed events from the server and folding them into client-side Signals.
 
 ---
 

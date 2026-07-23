@@ -21,6 +21,7 @@ import com.zeroz4j.api.BinarySerializer;
 import com.zeroz4j.api.GrowableBuffer;
 import com.zeroz4j.api.ObjectMapper;
 import com.zeroz4j.api.SyncFrameTypes;
+import com.zeroz4j.api.EventTopic;
 import com.zeroz4j.api.RmiService;
 import com.zeroz4j.api.RolesAllowed;
 import com.zeroz4j.api.Secured;
@@ -69,7 +70,7 @@ import java.util.concurrent.RejectedExecutionException;
  */
 @ServerEndpoint(value = "/wasm-rmi", configurator = RmiEndpointConfigurator.class)
 @ApplicationScoped
-public class WasmRmiServerEngine {
+public class WasmRmiServerEngine implements EventPublisher {
 
     private static final Logger LOG = Logger.getLogger(WasmRmiServerEngine.class.getName());
 
@@ -272,6 +273,20 @@ public class WasmRmiServerEngine {
         for (Session session : activeSessions) {
             sendPush(session, topic, payload);
         }
+    }
+
+    /**
+     * Broadcasts a typed event to all active client sessions.
+     *
+     * @param <T>     payload type bound by the topic
+     * @param topic   shared {@link EventTopic} descriptor
+     * @param payload the payload to broadcast; may be null for {@code EventTopic<Void>} events
+     *
+     * <p><b>Under the hood:</b> Delegates to {@link #broadcastPush(String, Object)} using {@link EventTopic#name()}.</p>
+     */
+    @Override
+    public <T> void publish(EventTopic<T> topic, T payload) {
+        broadcastPush(topic.name(), payload);
     }
 
     /**
