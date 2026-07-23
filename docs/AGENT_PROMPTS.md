@@ -76,7 +76,15 @@ Framework rules (violating these produces silent runtime failures):
   feedback, and rely on the server enforcing the same annotations on every
   RMI argument automatically — never re-implement per-field checks by hand.
 - LiveSync: annotate the state class @LiveSync, mutate it on the server, then call
-  syncEngine.notifyChanged(state) — the client's instance updates in place.
+  syncEngine.notifyChanged(state) — the client's instance updates in place. For
+  client-side edits, additionally annotate @ClientWritable (optionally with write
+  roles): client setter calls then propagate automatically — the server
+  authorizes, validates (model annotations), applies, and re-broadcasts, or
+  reverts the writer on rejection. Persist accepted mutations in a
+  LiveMutationListener bean. Mutations must go through setters; after in-place
+  collection edits call LiveMutationTracker.touch(obj). Concurrent unlocked
+  writes are last-write-wins — serialize editors with LiveMutex where needed.
+  Read docs/LIVESYNC.md before using this.
 - Persistence: the EclipseStore DataRoot pattern from the reference example
   (DataRoot + DefaultDataRootProvider + DefaultTenantResolver in .../server/store/).
   After mutating a collection, call storage.store(<the collection>).
@@ -429,6 +437,14 @@ ACCEPTANCE:
 - README explains the pattern in one paragraph: LiveSync carries state DOWN,
   RMI commands carry writes UP, LiveMutex serializes editors — clients never
   write shared object fields directly.
+
+VARIANT B (optional, only after the command-based version works): reimplement
+the edit flow with two-way LiveSync — annotate TeamProfile @ClientWritable,
+replace save() with direct setter calls on the profile (the framework
+propagates them), persist via a LiveMutationListener bean, and keep the
+LiveMutex serialization. Document in the README which trade-offs changed
+(no named save operation; validation now rides the model annotations;
+last-write-wins under the hood, masked by the lock).
 ```
 
 ---
