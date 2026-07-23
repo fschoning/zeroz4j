@@ -22,19 +22,18 @@
 
     <parent>
         <groupId>com.zeroz4j</groupId>
-        <artifactId>zeroz4j-parent</artifactId>
+        <artifactId>zeroz4j-examples</artifactId>
         <version>${revision}</version>
     </parent>
 
-    <artifactId>zeroz4j-examples</artifactId>
+    <artifactId>todo-signals</artifactId>
 
     <packaging>pom</packaging>
 
     <modules>
-        <module>components-showcase</module>
-        <module>chat-events</module>
-        <module>todo-signals</module>
-        <module>chat-livesync</module>
+        <module>todo-signals-shared</module>
+        <module>todo-signals-client</module>
+        <module>todo-signals-server</module>
     </modules>
 
 </project>
