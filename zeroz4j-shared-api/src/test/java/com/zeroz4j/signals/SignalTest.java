@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.zeroz4j.ui.signals;
+package com.zeroz4j.signals;
 
 import com.zeroz4j.api.Disposable;
 import org.junit.jupiter.api.Test;

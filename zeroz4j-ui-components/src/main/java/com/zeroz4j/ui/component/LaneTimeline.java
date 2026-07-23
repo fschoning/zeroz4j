@@ -20,7 +20,7 @@ package com.zeroz4j.ui.component;
 import com.zeroz4j.ui.component.Button;
 import com.zeroz4j.ui.layout.Div;
 import com.zeroz4j.ui.layout.Span;
-import com.zeroz4j.ui.signals.ValueSignal;
+import com.zeroz4j.signals.ValueSignal;
 import org.teavm.jso.browser.Window;
 
 import org.teavm.jso.dom.events.MouseEvent;
@@ -28,7 +28,7 @@ import org.teavm.jso.dom.xml.Element;
 
 import java.util.ArrayList;
 import java.util.List;
-import com.zeroz4j.ui.signals.Effect;
+import com.zeroz4j.signals.Effect;
 
 /**
  * Swimlane replay timeline (design Ãƒâ€šÃ‚Â§6.5): one lane per worker session, colored by outcome,

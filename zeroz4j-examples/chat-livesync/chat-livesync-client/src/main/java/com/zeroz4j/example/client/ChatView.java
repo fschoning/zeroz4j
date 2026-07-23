@@ -23,8 +23,8 @@ import com.zeroz4j.example.model.ChatMessage;
 import com.zeroz4j.example.model.LiveChatState;
 import com.zeroz4j.ui.component.*;
 import com.zeroz4j.ui.layout.*;
-import com.zeroz4j.ui.signals.ValueSignal;
-import com.zeroz4j.ui.signals.Effect;
+import com.zeroz4j.signals.ValueSignal;
+import com.zeroz4j.signals.Effect;
 
 import java.util.ArrayList;
 import java.util.List;

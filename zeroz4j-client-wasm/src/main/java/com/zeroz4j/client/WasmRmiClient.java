@@ -98,6 +98,7 @@ public class WasmRmiClient {
             (iface, method, args) -> executeCall(iface, method, args));
         networkChannel = channel;
         networkChannel.registerBinaryMessageHandler(WasmRmiClient::routeIncomingMessage);
+        ClientSignalTransport.install();
     }
 
     /**
@@ -202,6 +203,15 @@ public class WasmRmiClient {
                 String topic = BinarySerializer.readString(buffer);
                 Object payload = BinarySerializer.readValue(buffer, MAPPER);
                 dispatchPushMessage(topic, payload);
+            } else if (frameType == SyncFrameTypes.SIGNAL_UPD) {
+                String signalName = BinarySerializer.readString(buffer);
+                Object signalValue = BinarySerializer.readValue(buffer, MAPPER);
+                Runnable apply = () -> ClientSignalTransport.handleUpdate(signalName, signalValue);
+                if (uiScheduler != null) {
+                    uiScheduler.runLater(apply);
+                } else {
+                    apply.run();
+                }
             } else if (frameType == SyncFrameTypes.AUTH) {
                 // AUTH frame
                 byte protocolVersion = buffer.get(); // Read protocol version

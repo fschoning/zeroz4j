@@ -20,7 +20,7 @@ package com.zeroz4j.example.client.showcase;
 import com.zeroz4j.ui.component.*;
 import com.zeroz4j.ui.layout.*;
 import com.zeroz4j.ui.theme.*;
-import com.zeroz4j.ui.signals.*;
+import com.zeroz4j.signals.*;
 
 public class SwapShowcase extends ComponentShowcase {
 

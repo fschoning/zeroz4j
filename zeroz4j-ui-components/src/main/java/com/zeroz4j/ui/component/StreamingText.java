@@ -19,8 +19,8 @@ package com.zeroz4j.ui.component;
 
 import com.zeroz4j.ui.layout.Div;
 import com.zeroz4j.ui.layout.Span;
-import com.zeroz4j.ui.signals.Effect;
-import com.zeroz4j.ui.signals.Signal;
+import com.zeroz4j.signals.Effect;
+import com.zeroz4j.signals.Signal;
 
 /**
  * Text that grows as tokens stream in, with a blinking caret while live. Bind it to the

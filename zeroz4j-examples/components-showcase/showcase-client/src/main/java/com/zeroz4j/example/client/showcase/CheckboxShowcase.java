@@ -20,8 +20,8 @@ package com.zeroz4j.example.client.showcase;
 import com.zeroz4j.ui.component.*;
 import com.zeroz4j.ui.layout.*;
 import com.zeroz4j.ui.theme.*;
-import com.zeroz4j.ui.signals.ValueSignal;
-import com.zeroz4j.ui.signals.Computed;
+import com.zeroz4j.signals.ValueSignal;
+import com.zeroz4j.signals.Computed;
 
 public class CheckboxShowcase extends ComponentShowcase {
 

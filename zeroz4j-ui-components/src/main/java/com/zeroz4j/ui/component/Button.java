@@ -17,8 +17,8 @@
  */
 package com.zeroz4j.ui.component;
 
-import com.zeroz4j.ui.signals.Effect;
-import com.zeroz4j.ui.signals.Signal;
+import com.zeroz4j.signals.Effect;
+import com.zeroz4j.signals.Signal;
 import org.teavm.jso.dom.events.Event;
 import com.zeroz4j.ui.component.mixin.HasColorVariants;
 import com.zeroz4j.ui.component.mixin.HasOutlineVariant;

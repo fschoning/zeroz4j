@@ -24,8 +24,8 @@ import com.zeroz4j.ui.layout.Span;
 import com.zeroz4j.ui.layout.VerticalLayout;
 import com.zeroz4j.ui.component.Menu;
 import com.zeroz4j.ui.component.ThemeController;
-import com.zeroz4j.ui.signals.Effect;
-import com.zeroz4j.ui.signals.ValueSignal;
+import com.zeroz4j.signals.Effect;
+import com.zeroz4j.signals.ValueSignal;
 import org.teavm.jso.browser.Window;
 
 /**

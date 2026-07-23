@@ -23,9 +23,9 @@ import com.zeroz4j.example.api.TaskService_Stub;
 import com.zeroz4j.example.model.Task;
 import com.zeroz4j.ui.component.*;
 import com.zeroz4j.ui.layout.*;
-import com.zeroz4j.ui.signals.Computed;
-import com.zeroz4j.ui.signals.Effect;
-import com.zeroz4j.ui.signals.ValueSignal;
+import com.zeroz4j.signals.Computed;
+import com.zeroz4j.signals.Effect;
+import com.zeroz4j.signals.ValueSignal;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -19,8 +19,8 @@ package com.zeroz4j.client;
 
 import com.zeroz4j.api.Disposable;
 import com.zeroz4j.api.EventTopic;
-import com.zeroz4j.ui.signals.ObservableSignal;
-import com.zeroz4j.ui.signals.ValueSignal;
+import com.zeroz4j.signals.ObservableSignal;
+import com.zeroz4j.signals.ValueSignal;
 
 import java.util.function.Consumer;
 

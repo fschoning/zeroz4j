@@ -19,8 +19,8 @@ package com.zeroz4j.ui.component;
 
 import com.zeroz4j.ui.component.Component;
 import com.zeroz4j.ui.component.HasComponents;
-import com.zeroz4j.ui.signals.Effect;
-import com.zeroz4j.ui.signals.Signal;
+import com.zeroz4j.signals.Effect;
+import com.zeroz4j.signals.Signal;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;

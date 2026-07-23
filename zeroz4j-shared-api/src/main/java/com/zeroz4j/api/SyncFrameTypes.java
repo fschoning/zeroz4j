@@ -44,6 +44,11 @@ public final class SyncFrameTypes {
     /** Authentication frame byte tag (0x03) sent on connect. Payload: username string + role set. */
     public static final byte AUTH         = 0x03;
 
+    /** Reserved interface name for framework-internal RMI-shaped frames. The client requests a
+     *  shared signal's retained value by "calling" {@code zeroz4j.signals#subscribe(name)};
+     *  the server engine intercepts this before service dispatch. */
+    public static final String SIGNALS_SERVICE = "zeroz4j.signals";
+
     /** RPC error response byte tag (0x0F). Payload: correlation ID + error message string. */
     public static final byte RPC_ERROR    = 0x0F;
 
@@ -69,10 +74,12 @@ public final class SyncFrameTypes {
 
     // --- Reactive Signals ---
 
-    /** Client -> Server: Subscribe to named reactive signal (0x16). Payload: signalName + valueType. */
-    public static final byte SIGNAL_SUB  = 0x17 - 1; // 0x16
+    /** Client -> Server: Subscribe to named reactive signal (0x16). Reserved — the current
+     *  subscribe mechanism rides an RMI-shaped frame to {@link #SIGNALS_SERVICE}. */
+    public static final byte SIGNAL_SUB  = 0x16;
 
-    /** Bidirectional: Reactive signal value updated (0x17). Payload: signalName + serialized value. */
+    /** Server -> Client: Shared signal value (0x17). Payload: signal name string + serialized value.
+     *  Sent as a broadcast on every server-side change and directly to a session on subscribe. */
     public static final byte SIGNAL_UPD  = 0x17;
 
     /** Server -> Client: One-shot push message (0x18). Payload: topic string + serialized payload. */

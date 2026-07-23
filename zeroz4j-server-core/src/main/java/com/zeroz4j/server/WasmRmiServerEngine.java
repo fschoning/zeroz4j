@@ -166,6 +166,7 @@ public class WasmRmiServerEngine implements EventPublisher {
         } catch (Exception e) {
             LOG.warning("[zeroz4j] Warning: CDI service scan deferred: " + e.getMessage());
         }
+        ServerSignalTransport.install(mapper);
     }
 
     /**
@@ -242,6 +243,9 @@ public class WasmRmiServerEngine implements EventPublisher {
 
         // LiveSync: clean up the SyncSession
         syncEngine.removeSession(session.getId());
+
+        // Shared signals: drop parked subscriptions
+        ServerSignalTransport.sessionClosed(session);
     }
 
     private void sendAuthFrame(Session session, String username, Set<String> roles) {
@@ -287,6 +291,44 @@ public class WasmRmiServerEngine implements EventPublisher {
     @Override
     public <T> void publish(EventTopic<T> topic, T payload) {
         broadcastPush(topic.name(), payload);
+    }
+
+    /**
+     * Sends a shared-signal value (0x05 SIGNAL_UPDATE) to a single session.
+     *
+     * @param session target session
+     * @param name    shared signal wire name
+     * @param value   current value
+     * @param mapper  object mapper for serialization
+     */
+    static void sendSignalUpdate(Session session, String name, Object value, ObjectMapper mapper) {
+        if (!session.isOpen()) {
+            activeSessions.remove(session);
+            return;
+        }
+        try {
+            GrowableBuffer buffer = new GrowableBuffer();
+            buffer.putInt(0);
+            buffer.put(SyncFrameTypes.SIGNAL_UPD);
+            BinarySerializer.writeString(buffer, name);
+            BinarySerializer.writeValue(buffer, value, mapper);
+            WsWrites.send(session, buffer.toByteArray());
+        } catch (Exception e) {
+            LOG.warning("[zeroz4j] Signal update error for session " + session.getId() + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Broadcasts a shared-signal value (0x05 SIGNAL_UPDATE) to all active sessions.
+     *
+     * @param name   shared signal wire name
+     * @param value  current value
+     * @param mapper object mapper for serialization
+     */
+    static void broadcastSignalUpdate(String name, Object value, ObjectMapper mapper) {
+        for (Session session : activeSessions) {
+            sendSignalUpdate(session, name, value, mapper);
+        }
     }
 
     /**
@@ -349,6 +391,17 @@ public class WasmRmiServerEngine implements EventPublisher {
                     String interfaceName = BinarySerializer.readString(buffer);
                     String methodName = BinarySerializer.readString(buffer);
                     int argumentCount = buffer.getInt();
+
+                    // Framework-internal frames: shared signal subscription requests
+                    if (SyncFrameTypes.SIGNALS_SERVICE.equals(interfaceName)) {
+                        if ("subscribe".equals(methodName) && argumentCount == 1) {
+                            Object signalName = BinarySerializer.readValue(buffer, mapper);
+                            if (signalName instanceof String) {
+                                ServerSignalTransport.handleSubscribe((String) signalName, session);
+                            }
+                        }
+                        return;
+                    }
 
                     // Validate against service whitelist
                     Object beanInstance = serviceRegistry.get(interfaceName);

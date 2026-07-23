@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.zeroz4j.ui.signals;
+package com.zeroz4j.signals;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,7 +59,9 @@ public class ValueSignal<T> implements ObservableSignal<T> {
     @Override
     public T get() {
         Effect.registerDependency(this);
-        return value;
+        synchronized (this) {
+            return value;
+        }
     }
 
     /**
@@ -70,11 +72,9 @@ public class ValueSignal<T> implements ObservableSignal<T> {
      * <p><b>Under the hood:</b> Checks equality (`this.value == newValue || equals`). Assigns {@code value} and calls {@link #notifyListeners()}.</p>
      */
     public void set(T newValue) {
-        if (this.value == newValue || (this.value != null && this.value.equals(newValue))) {
-            return;
+        if (assignIfChanged(newValue)) {
+            notifyListeners();
         }
-        this.value = newValue;
-        notifyListeners();
     }
 
     /**
@@ -83,7 +83,11 @@ public class ValueSignal<T> implements ObservableSignal<T> {
      * @param updater transformation operator function
      */
     public void update(UnaryOperator<T> updater) {
-        set(updater.apply(this.value));
+        T current;
+        synchronized (this) {
+            current = value;
+        }
+        set(updater.apply(current));
     }
 
     /**
@@ -93,7 +97,9 @@ public class ValueSignal<T> implements ObservableSignal<T> {
      */
     @Override
     public void addListener(Consumer<T> listener) {
-        listeners.add(listener);
+        synchronized (listeners) {
+            listeners.add(listener);
+        }
     }
 
     /**
@@ -103,13 +109,36 @@ public class ValueSignal<T> implements ObservableSignal<T> {
      */
     @Override
     public void removeListener(Consumer<T> listener) {
-        listeners.remove(listener);
+        synchronized (listeners) {
+            listeners.remove(listener);
+        }
+    }
+
+    /**
+     * Assigns the value if it differs from the current one (by identity or equals),
+     * without notifying listeners.
+     *
+     * @return true if the value changed
+     */
+    synchronized boolean assignIfChanged(T newValue) {
+        if (this.value == newValue || (this.value != null && this.value.equals(newValue))) {
+            return false;
+        }
+        this.value = newValue;
+        return true;
     }
 
     void notifyListeners() {
-        List<Consumer<T>> currentListeners = new ArrayList<>(listeners);
+        List<Consumer<T>> currentListeners;
+        synchronized (listeners) {
+            currentListeners = new ArrayList<>(listeners);
+        }
+        T currentValue;
+        synchronized (this) {
+            currentValue = value;
+        }
         for (Consumer<T> listener : currentListeners) {
-            listener.accept(value);
+            listener.accept(currentValue);
         }
     }
 }

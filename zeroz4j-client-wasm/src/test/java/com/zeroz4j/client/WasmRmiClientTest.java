@@ -70,6 +70,7 @@ public class WasmRmiClientTest {
 
     @BeforeEach
     public void setup() {
+        com.zeroz4j.signals.Signals.resetForTesting();
         channel = new FakeWebSocketChannel();
         WasmRmiClient.pendingRequests.clear();
         WasmRmiClient.pushListeners.clear();
@@ -243,7 +244,7 @@ public class WasmRmiClientTest {
 
         List<String> observed = new ArrayList<>();
         com.zeroz4j.api.Disposable effect =
-                com.zeroz4j.ui.signals.Effect.create(() -> observed.add(latest.get()));
+                com.zeroz4j.signals.Effect.create(() -> observed.add(latest.get()));
 
         GrowableBuffer pushFrame = new GrowableBuffer();
         pushFrame.putInt(0);
@@ -257,6 +258,38 @@ public class WasmRmiClientTest {
 
         effect.dispose();
         latest.dispose();
+    }
+
+    @Test
+    public void testSharedSignalMirror() throws Exception {
+        com.zeroz4j.signals.ValueSignal<String> mirror =
+                com.zeroz4j.signals.Signals.shared("test.shared", "initial");
+
+        // Declaring the signal must send a subscribe request for the retained value
+        assertEquals(1, channel.sentMessages.size());
+        ByteBuffer sent = ByteBuffer.wrap(channel.sentMessages.get(0));
+        assertEquals(0, sent.getInt()); // fire-and-forget, no correlation
+        assertEquals("zeroz4j.signals", BinarySerializer.readString(sent));
+        assertEquals("subscribe", BinarySerializer.readString(sent));
+        assertEquals(1, sent.getInt());
+        assertEquals("test.shared", BinarySerializer.readValue(sent, WasmRmiClient.MAPPER));
+
+        // A SIGNAL_UPDATE frame applies to the mirror and notifies effects
+        List<String> observed = new ArrayList<>();
+        com.zeroz4j.signals.Effect.create(() -> observed.add(mirror.get()));
+
+        GrowableBuffer update = new GrowableBuffer();
+        update.putInt(0);
+        update.put((byte) 0x17); // SIGNAL_UPD
+        BinarySerializer.writeString(update, "test.shared");
+        BinarySerializer.writeValue(update, "from server", WasmRmiClient.MAPPER);
+        WasmRmiClient.routeIncomingMessage(update.toByteArray());
+
+        assertEquals("from server", mirror.get());
+        assertEquals(List.of("initial", "from server"), observed);
+
+        // The mirror is server-authoritative: local writes fail
+        assertThrows(IllegalStateException.class, () -> mirror.set("local write"));
     }
 
     @Test
