@@ -95,7 +95,7 @@ public class ChatView extends Card {
         errorDiv.addClassName("mt-2");
         add(errorDiv);
 
-        sendButton.addClickListener(e -> {
+        Runnable send = () -> {
             String text = inputField.getValue();
             if (text != null && !text.trim().isEmpty()) {
                 inputField.setValue("");
@@ -107,7 +107,14 @@ public class ChatView extends Card {
                     showError("Failed to send message: " + ex.getMessage());
                 }
             }
-        });
+        };
+        sendButton.addClickListener(e -> send.run());
+        inputField.addDomEventListener("keydown",
+                (org.teavm.jso.dom.events.KeyboardEvent evt) -> {
+                    if ("Enter".equals(evt.getKey())) {
+                        send.run();
+                    }
+                });
 
         // Subscribe BEFORE fetching history so no message can fall into the gap between
         // the server building the snapshot and this client starting to listen.
