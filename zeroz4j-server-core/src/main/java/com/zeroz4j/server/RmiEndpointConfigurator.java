@@ -64,7 +64,19 @@ public class RmiEndpointConfigurator extends ServerEndpointConfig.Configurator {
         Principal principal = request.getUserPrincipal();
         Set<String> userRoles = new LinkedHashSet<>();
 
-        // (HttpSession DevLoginServlet fallback removed for Helidon)
+        // Dev-mode fallback (Helidon has no servlet login): credentials arrive as
+        // user/password query parameters on the WebSocket handshake and are validated
+        // against DevAuth's demo users. Invalid credentials leave the session anonymous.
+        if (principal == null && DevAuth.isDevMode()) {
+            java.util.Map<String, java.util.List<String>> params = request.getParameterMap();
+            String user = firstParam(params, "user");
+            String password = firstParam(params, "password");
+            Set<String> devRoles = DevAuth.authenticate(user, password);
+            if (devRoles != null) {
+                principal = () -> user;
+                userRoles.addAll(devRoles);
+            }
+        }
 
         // Anonymous connections have no principal; user-properties maps may reject null
         // values (Tomcat/TomEE use a ConcurrentHashMap and NPE on put(key, null)).
@@ -80,5 +92,10 @@ public class RmiEndpointConfigurator extends ServerEndpointConfig.Configurator {
             }
         }
         config.getUserProperties().put(ROLES_KEY, userRoles);
+    }
+
+    private static String firstParam(java.util.Map<String, java.util.List<String>> params, String name) {
+        java.util.List<String> values = params != null ? params.get(name) : null;
+        return values != null && !values.isEmpty() ? values.get(0) : null;
     }
 }

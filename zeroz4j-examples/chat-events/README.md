@@ -32,4 +32,9 @@ cd zeroz4j-examples/chat-events/chat-events-server
 mvn exec:java -Dexec.mainClass="com.zeroz4j.example.server.ExampleServer"
 ```
 
-Open `http://localhost:8080` in two browser windows and chat between them.
+Open `http://localhost:8080` in two browser windows and sign in as a different demo
+user in each — `demo` / `demo` and `admin` / `admin` — then chat between them. The
+credentials are validated server-side during the WebSocket handshake (dev-mode
+login; see `DevAuth`), and the sender name on each message is the authenticated
+principal, never client-supplied. Only `admin` may clear the history
+(`@RolesAllowed("admin")`).

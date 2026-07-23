@@ -25,6 +25,11 @@ import com.zeroz4j.server.Zeroz4jServer;
 public final class ExampleServer {
 
     public static void main(String[] args) {
+        // Example convenience: enable dev login (demo/demo, admin/admin) unless overridden.
+        if (System.getProperty("zeroz.security.mode") == null) {
+            System.setProperty("zeroz.security.mode", "dev");
+        }
+        System.out.println("[zeroz4j] Dev login enabled - sign in as demo/demo or admin/admin");
         Zeroz4jServer.start(8080, "zeroz4j Example Server").join();
     }
 }

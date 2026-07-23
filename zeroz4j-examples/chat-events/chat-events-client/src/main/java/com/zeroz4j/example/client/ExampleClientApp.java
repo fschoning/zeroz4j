@@ -18,6 +18,7 @@
 package com.zeroz4j.example.client;
 
 import com.zeroz4j.client.Zeroz4jClient;
+import com.zeroz4j.ui.component.Login;
 import com.zeroz4j.api.RmiSecurityContext;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.browser.Window;
@@ -25,18 +26,43 @@ import org.teavm.jso.dom.html.HTMLElement;
 
 public class ExampleClientApp {
 
-    public static void main(String[] args) {
-        String wsUrl = getWebSocketUrl();
+    private static boolean started = false;
 
-        Zeroz4jClient.connect(wsUrl, () -> {
-            RmiSecurityContext.onAuthenticated(() -> {
-                // Switch to Main Layout when connected and authenticated
-                MainLayout mainLayout = new MainLayout();
-                HTMLElement appRoot = Window.current().getDocument().getElementById("app-root");
-                appRoot.appendChild(mainLayout.getElement());
+    public static void main(String[] args) {
+        HTMLElement appRoot = Window.current().getDocument().getElementById("app-root");
+
+        Login[] loginHolder = new Login[1];
+        loginHolder[0] = new Login((username, password) -> {
+            // Credentials ride the WebSocket handshake; DevAuth validates them server-side.
+            String wsUrl = getWebSocketUrl()
+                    + "?user=" + encode(username) + "&password=" + encode(password);
+            Zeroz4jClient.connect(wsUrl, () -> {
+                RmiSecurityContext.onAuthenticated(() -> {
+                    if (started) {
+                        return;
+                    }
+                    started = true;
+                    appRoot.setInnerHTML("");
+                    appRoot.appendChild(new MainLayout().getElement());
+                });
+                // Invalid credentials leave the session anonymous: no AUTH frame arrives.
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(3000);
+                    } catch (InterruptedException ignored) {
+                    }
+                    if (!RmiSecurityContext.isAuthenticated()) {
+                        loginHolder[0].showError("Sign-in failed - try demo/demo or admin/admin");
+                    }
+                }).start();
             });
         });
+        loginHolder[0].setHint("Demo users: demo / demo · admin / admin");
+        appRoot.appendChild(loginHolder[0].getElement());
     }
+
+    @JSBody(params = {"value"}, script = "return encodeURIComponent(value);")
+    private static native String encode(String value);
 
     @JSBody(script =
         "var l = window.location;" +
@@ -46,4 +72,3 @@ public class ExampleClientApp {
         "return (l.protocol === 'https:' ? 'wss://' : 'ws://') + l.host + path + 'wasm-rmi';")
     private static native String getWebSocketUrl();
 }
-
