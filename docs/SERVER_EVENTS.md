@@ -9,7 +9,7 @@ Zeroz4j uses four terms with distinct meanings — keeping them apart keeps the 
 | Term | Meaning |
 |---|---|
 | **Event** | A discrete, fire-and-forget *occurrence* broadcast from server to client: `EventTopic`, `EventPublisher`, `ServerEvents`. There is no "current value" and no replay. |
-| **Signal** | Client-side reactive *state*: `ValueSignal`, `Computed`, `Effect` (see [SIGNALS.md](SIGNALS.md)). A separate, independent feature — **events do not require signals**. |
+| **Signal** | Reactive *state*: `ValueSignal`, `Computed`, `Effect` — local to either tier or shared across both via `Signals.shared` (see [SIGNALS.md](SIGNALS.md)). A separate, independent feature — **events do not require signals**. |
 | **Push** | The transport direction: the 0x02 PUSH frame that carries events over the WebSocket. |
 | **Message** | Reserved for application domains (e.g. a `ChatMessage` in a chat app). Never a framework concept — Zeroz4j is not a message broker. |
 
@@ -96,7 +96,7 @@ Disposable sub = ServerEvents.on(ChatEvents.MESSAGE_POSTED, msg ->
         }));
 ```
 
-For topics whose payload genuinely *is* state (a status broadcast, a live counter), `ServerEvents.latest(topic, initialValue)` returns a `LatestSignal` — the built-in bridge that holds the most recent payload and participates in `Effect`/`Computed` tracking.
+If what you are broadcasting genuinely *is* state (a status, a live counter), you usually don't want events at all — declare a [shared signal](SIGNALS.md#shared-signals-one-declaration-both-tiers) instead: the server `set()`s it, every client mirror updates automatically, and late joiners receive the retained value. `ServerEvents.latest(topic, initialValue)` remains as a bridge for deriving last-seen state from a genuine event stream.
 
 See [SIGNALS.md](SIGNALS.md) and the `todo-signals` example for the reactive model itself.
 

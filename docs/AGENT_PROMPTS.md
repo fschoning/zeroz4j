@@ -59,6 +59,11 @@ Framework rules (violating these produces silent runtime failures):
   wire names like "job.statusChanged"); inject EventPublisher (never the transport
   engine) on the server; subscribe with ServerEvents.on BEFORE fetching initial
   state over RMI, then merge (events are at-most-once, no replay).
+- Shared signals: for broadcast STATE (not occurrences), declare
+  Signals.shared("wire.name", initialValue) once as a constant in the shared
+  module — the constant IS the signal. The server set()s it; client mirrors
+  update automatically and late joiners receive the retained value. Shared
+  signals are server-authoritative: a client-side set() throws.
 - LiveSync: annotate the state class @LiveSync, mutate it on the server, then call
   syncEngine.notifyChanged(state) — the client's instance updates in place.
 - Persistence: the EclipseStore DataRoot pattern from the reference example
@@ -118,9 +123,9 @@ ACCEPTANCE:
 
 ---
 
-## Task 2 — `job-monitor`: a server-fed signal from a long-running job
+## Task 2 — `job-monitor`: a shared signal fed by a long-running job
 
-Feature focus: a backend service publishing progress events from a fake external source; the UI updates automatically through `ServerEvents.latest` (a server-fed signal). Reference: `chat-events` (structure) + `todo-signals` (signals usage).
+Feature focus: a backend service writing a **shared signal** from a fake external source; every client's UI updates automatically, including late joiners. Reference: `chat-events` (structure) + `todo-signals` (signals usage).
 
 ```text
 TASK: Build the example "job-monitor" under zeroz4j-examples/job-monitor.
@@ -129,38 +134,44 @@ Reference example to copy: zeroz4j-examples/chat-events.
 Simulate monitoring a long-running deployment pipeline:
 - Shared model JobStatus (@BinaryModel): jobId (long), phase (String: one of
   "Queued", "Building", "Testing", "Deploying", "Done", "Failed"), percent (int
-  0–100), message (String), running (boolean). Value-based equals/hashCode.
-- Shared topics class JobEvents: EventTopic<JobStatus> STATUS_CHANGED with wire
-  name "job.statusChanged".
-- @RmiService JobService { JobStatus getCurrentStatus(); void startJob(); }.
+  0–100), message (String), running (boolean). Value-based equals/hashCode and
+  a static JobStatus idle() factory.
+- Shared signal declaration (this replaces any event topic — there are NO
+  EventTopics in this example):
+      public final class JobSignals {
+          public static final ValueSignal<JobStatus> STATUS =
+                  Signals.shared("job.status", JobStatus.idle());
+      }
+- @RmiService JobService { void startJob(); } — note: NO status getter; the
+  shared signal makes one unnecessary.
 - Server: an @ApplicationScoped JobRunner bean simulating the fake external
-  source. startJob() launches a virtual thread (Thread.ofVirtual() or
-  Executors.newVirtualThreadPerTaskExecutor()) that advances through the phases
-  over ~20 seconds, updating percent in increments (Thread.sleep between ticks;
-  small random variation is fine) and calling
-  events.publish(JobEvents.STATUS_CHANGED, status) on every tick — inject
-  EventPublisher. Roughly 1 run in 4 should end in "Failed" partway through.
-  Ignore startJob() while a job is already running. Keep the latest JobStatus in
-  the bean so getCurrentStatus() answers late-joining clients.
-- Client: ServerEvents.latest(JobEvents.STATUS_CHANGED, <idle status>) gives a
-  LatestSignal<JobStatus> — the "server-fed signal". Derive the whole UI from it
-  with Effects/Computed, nothing else:
+  source. startJob() launches a virtual thread (Thread.ofVirtual()) that
+  advances through the phases over ~20 seconds, updating percent in increments
+  (Thread.sleep between ticks; small random variation is fine), and on every
+  tick simply calls:
+      JobSignals.STATUS.set(new JobStatus(...));
+  Always set a NEW JobStatus instance — never mutate the current one. Roughly
+  1 run in 4 should end in "Failed" partway through. Ignore startJob() while
+  JobSignals.STATUS.get().isRunning() is true.
+- Client: derive the whole UI from JobSignals.STATUS with Effects/Computed,
+  nothing else:
   * a Progress (or RadialProgress) bar bound to percent;
   * a Steps component showing the phases with the current one highlighted;
   * a StatusDot + Badge for the phase, styled differently for Done/Failed;
   * a "Start job" Button disabled (via an Effect) while running is true.
-  On startup, call getCurrentStatus() ONCE (background thread) and, if it is
-  fresher than the signal's value, feed it into the same state path — a client
-  that joins mid-job must show the correct progress immediately.
+  There is NO status fetch, NO subscribe call, and NO merge logic anywhere in
+  the client — the framework delivers the retained value on connect.
 - Open two browser windows: both must track the same job in real time.
-- Provide dispose() releasing the LatestSignal and all Effects.
+- Provide dispose() releasing all Effects.
 
 ACCEPTANCE:
 - mvn install passes from the root.
 - Clicking "Start job" animates the progress bar to completion (or failure)
-  WITHOUT any client-side polling — no timers, no repeated RMI calls; the only
-  client->server traffic after start is the initial getCurrentStatus().
-- A second browser window opened mid-job shows the current progress within a tick.
+  WITHOUT any client-side polling and WITHOUT any status-fetching RMI method —
+  the only client->server call in the whole example is startJob().
+- A second browser window opened mid-job shows the current progress immediately
+  (retained value), then tracks live.
+- grep the client module for "subscribe", "getCurrentStatus", "merge": no hits.
 ```
 
 ---

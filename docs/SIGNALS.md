@@ -1,8 +1,8 @@
 # Signals: Client-Side Reactive State
 
-Zeroz4j's Signals are a client-side reactive state system for Wasm UIs: state lives in **signals**, derived values are **computed**, and rendering happens in **effects** that re-run automatically when anything they read changes. No manual listener wiring, no "remember to update the label too" bugs.
+Zeroz4j has **one signal abstraction** with three scopes: local to the client, local to the server, or shared across both. State lives in **signals**, derived values are **computed**, and rendering (or any side effect) happens in **effects** that re-run automatically when anything they read changes. No manual listener wiring, no "remember to update the label too" bugs.
 
-Signals are a standalone feature — they know nothing about the network. Server events can *feed* signals (see [SERVER_EVENTS.md](SERVER_EVENTS.md)), but neither feature requires the other.
+The signal core (`com.zeroz4j.signals`) lives in the shared API module and knows nothing about the network. Server events can *feed* signals (see [SERVER_EVENTS.md](SERVER_EVENTS.md)), but neither feature requires the other.
 
 ## The primitives
 
@@ -50,6 +50,35 @@ tasks.update(current -> {
     return next;
 });
 ```
+
+## Shared signals: one declaration, both tiers
+
+A signal created with `Signals.shared(name, initialValue)` is the same `ValueSignal` type, bound to a wire identity. Declare it **once** as a constant in your shared API module — the constant *is* the signal; there is no topic object, no subscribe call, no publish call:
+
+```java
+// shared module
+public final class JobSignals {
+    public static final ValueSignal<JobStatus> STATUS =
+            Signals.shared("job.status", JobStatus.idle());
+}
+```
+
+```java
+// server — the whole propagation story:
+JobSignals.STATUS.set(next);
+
+// client — indistinguishable from a local signal:
+Effect.create(() -> progressBar.setValue(JobSignals.STATUS.get().getPercent()));
+```
+
+Because the shared module compiles into both tiers, each tier holds its own instance of the constant bound to the same name; the runtime gives it its role. The server instance broadcasts on `set()` and **retains the latest value**; a client mirror receives the retained value the moment it subscribes — late joiners are always current, with no snapshot fetch and no merge logic. In a plain unit test with no transport installed, a shared signal behaves exactly like a local one.
+
+Semantics and current limits, stated plainly:
+
+* **Server-authoritative** — in this release a client-side `set()` on a shared signal throws `IllegalStateException`. Change shared state on the server; keep client-only state in local signals. (Client-writable shared signals with per-signal authorization are planned.)
+* **Latest-wins state, not events** — consecutive equal values are deduplicated, and there is no history or replay of intermediate values. For discrete occurrences use [server events](SERVER_EVENTS.md).
+* **Serializable payloads** — the value type must be wire-serializable (`@BinaryModel` or a `BinarySerializer`-supported type). Treat shared values as immutable: `set()` a new instance, never mutate the current one.
+* The wire name is an explicit string because it is the only identity that is stable across the separately-loaded server JVM and Wasm client at runtime.
 
 ## Component binding
 

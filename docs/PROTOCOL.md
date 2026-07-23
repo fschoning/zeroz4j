@@ -63,8 +63,12 @@ LiveSync handles real-time object graph synchronization and reactive signals.
   * Mutation rejected (e.g., version conflict).
   * Payload: `[8 bytes]` Current Version + `[Type Tag + Value]` Current Object + `[String]` Reason
 * **0x16 — SIGNAL_SUB** (Client -> Server)
-  * Payload: `[String]` Signal Name
-* **0x17 — SIGNAL_UPD** (Bidirectional)
+  * Reserved. The current subscribe mechanism rides an RMI-shaped frame to the internal
+    service `zeroz4j.signals` (method `subscribe`, one String argument: the signal name);
+    the server intercepts it before service dispatch and answers with the retained value.
+* **0x17 — SIGNAL_UPD** (Server -> Client)
+  * Shared signal value. Broadcast to all sessions on every server-side change, and sent
+    directly to a session in response to a subscribe.
   * Payload: `[String]` Signal Name + `[Type Tag + Value]` Serialized Value
 
 ## Binary Type Tags (Serialization)
