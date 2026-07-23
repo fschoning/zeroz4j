@@ -94,8 +94,11 @@ Framework rules (violating these produces silent runtime failures):
 Hard constraints:
 - Do NOT modify any framework module (zeroz4j-* directories) — examples only.
 - Do NOT add external dependencies.
-- Use only UI components that exist in
+- Prefer UI components that exist in
   zeroz4j-ui-components/src/main/java/com/zeroz4j/ui/component/ — check before use.
+  If no library component fits (e.g. you need a differently-typed input), a small
+  app-local component extending AbstractField<C, T> is acceptable — note it in the
+  README as a library gap.
 - If the spec leaves a choice open, make a sensible one and record it in the README.
 
 Definition of done: `mvn install` from the repository root succeeds (including the
@@ -120,22 +123,33 @@ A signup form for a fictional developer conference:
   * experienceYears (int): @Min(0) @Max(50)
   * bio: @Size(max = 400) (optional)
 - Fields: full name (TextField), email (TextField), years of Java experience
-  (Range or Select), T-shirt size (RadioButtonGroup or Select: S/M/L/XL),
-  "subscribe to newsletter" (Toggle or Checkbox), short bio (TextArea).
+  (NOTE: the library Select is String-typed and Range is Double-typed — either
+  parse a String Select, adapt Range, or write a small Integer-typed
+  AbstractField subclass; state your choice in the README), T-shirt size
+  (RadioButtonGroup or Select: S/M/L/XL), "subscribe to newsletter" (Toggle or
+  Checkbox), short bio (TextArea).
 - Bind every field to a ValueSignal via bindValue(...) AND attach the generated
   rules via withRule(Registration_Rules.<field>()). Lay the form out with
   FormLayout or VerticalLayout. Show each field's getViolations() in a small
-  Div under it, driven by an Effect.
+  Div under it, driven by an Effect. KNOWN LIMITATION: isValid()/getViolations()
+  are not reactive — read the field's bound signal in the same Effect/Computed
+  so it re-runs on changes (the signal updates after validation, so violations
+  read fresh).
 - A Computed<Boolean> formValid combining the fields' isValid() plus any
-  cross-field logic; the Submit button is disabled while formValid is false —
-  driven by an Effect, never set manually in handlers.
+  cross-field logic (read every bound signal inside the computation for
+  tracking, per the note above; dispose this Computed in dispose()); the Submit
+  button is disabled while formValid is false — driven by an Effect, never set
+  manually in handlers.
 - @RmiService RegistrationService { void register(Registration r);
   List<Registration> listRegistrations(); } — the server appends to the
   EclipseStore DataRoot and persists. Do NOT hand-write per-field checks in
   the service: the engine already enforces the model annotations on every
   argument. Add only genuinely business-level checks (e.g. duplicate email).
 - After a successful submit: show a Toast or Alert, clear the form signals, and
-  render the (refetched) registration list under the form in a Table.
+  render the (refetched) registration list under the form in a Table. KNOWN
+  LIMITATION: fields the user touched will re-show required-field errors after
+  the clear (there is no touched-state reset yet) — mention this in the README
+  rather than working around it.
 
 ACCEPTANCE:
 - mvn install passes from the root.
