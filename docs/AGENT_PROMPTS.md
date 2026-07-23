@@ -27,8 +27,9 @@ no JavaScript, no SQL.
 
 Before writing any code, read these files in the repository:
 - docs/CONCEPTS.md            (the 10 core concepts)
-- docs/SIGNALS.md             (client-side reactive state)
+- docs/SIGNALS.md             (reactive state: local and shared)
 - docs/SERVER_EVENTS.md       (typed server-to-client events)
+- docs/VALIDATION.md          (model annotations enforced on both tiers)
 - the README.md and full source of the REFERENCE EXAMPLE named in the task
 
 Method — follow it exactly:
@@ -65,7 +66,15 @@ Framework rules (violating these produces silent runtime failures):
   explicit name only for multiple signals of one type). The server set()s it
   with a NEW immutable instance each time; client mirrors update automatically
   and late joiners receive the retained value. Shared signals are
-  server-authoritative: a client-side set() throws.
+  server-authoritative: a client-side set() throws, unless declared with
+  Signals.sharedWritable(...) — then client writes are optimistic and the
+  server accepts (roles + validation annotations) or rejects with a
+  corrective update.
+- Validation: declare field constraints (@NotBlank, @Size, @Min, @Max from
+  com.zeroz4j.api.validation) on @BinaryModel fields. The APT generates
+  <Model>_Rules; attach rules to UI fields with field.withRule(...) for live
+  feedback, and rely on the server enforcing the same annotations on every
+  RMI argument automatically — never re-implement per-field checks by hand.
 - LiveSync: annotate the state class @LiveSync, mutate it on the server, then call
   syncEngine.notifyChanged(state) — the client's instance updates in place.
 - Persistence: the EclipseStore DataRoot pattern from the reference example
@@ -96,30 +105,38 @@ TASK: Build the example "form-signup" under zeroz4j-examples/form-signup.
 Reference example to copy: zeroz4j-examples/todo-signals.
 
 A signup form for a fictional developer conference:
+- Shared model Registration (@BinaryModel) carrying the form data, with the
+  rules declared as validation annotations ON THE MODEL:
+  * fullName: @NotBlank @Size(min = 2, max = 60)
+  * email: @NotBlank @Size(min = 5, max = 120)
+  * experienceYears (int): @Min(0) @Max(50)
+  * bio: @Size(max = 400) (optional)
 - Fields: full name (TextField), email (TextField), years of Java experience
   (Range or Select), T-shirt size (RadioButtonGroup or Select: S/M/L/XL),
-  "subscribe to newsletter" (Toggle or Checkbox), short bio (TextArea, optional).
-- Bind every field to a ValueSignal via bindValue(...). Lay the form out with
-  FormLayout or VerticalLayout.
-- Reactive validation, all client-side via Computed signals:
-  * name: non-blank; email: contains "@" and "."; experience: 0–50.
-  * a Computed<Boolean> formValid combining the field validations;
-  * per-field error hints (a small Div under each field) driven by Effects —
-    show the hint only after the field was touched (track touched state in signals);
-  * the Submit button is disabled (setEnabled(false)) while formValid is false —
-    driven by an Effect, never set manually in handlers.
-- Shared model Registration (@BinaryModel) carrying the form data.
+  "subscribe to newsletter" (Toggle or Checkbox), short bio (TextArea).
+- Bind every field to a ValueSignal via bindValue(...) AND attach the generated
+  rules via withRule(Registration_Rules.<field>()). Lay the form out with
+  FormLayout or VerticalLayout. Show each field's getViolations() in a small
+  Div under it, driven by an Effect.
+- A Computed<Boolean> formValid combining the fields' isValid() plus any
+  cross-field logic; the Submit button is disabled while formValid is false —
+  driven by an Effect, never set manually in handlers.
 - @RmiService RegistrationService { void register(Registration r);
   List<Registration> listRegistrations(); } — the server appends to the
-  EclipseStore DataRoot and persists.
+  EclipseStore DataRoot and persists. Do NOT hand-write per-field checks in
+  the service: the engine already enforces the model annotations on every
+  argument. Add only genuinely business-level checks (e.g. duplicate email).
 - After a successful submit: show a Toast or Alert, clear the form signals, and
   render the (refetched) registration list under the form in a Table.
 
 ACCEPTANCE:
 - mvn install passes from the root.
-- Typing an invalid email shows its hint and keeps Submit disabled; fixing it
-  enables Submit with no explicit "recheck" code path — validation is entirely
-  Computed/Effect driven.
+- Typing an invalid email shows its violation and keeps Submit disabled; fixing
+  it enables Submit with no explicit "recheck" code path.
+- The SAME rules hold server-side: a register() call carrying an invalid
+  Registration (e.g. crafted past the UI) is rejected by the engine before the
+  service method runs — demonstrate this in the README with one sentence on
+  how you verified it.
 - Submitted registrations survive a server restart (EclipseStore).
 ```
 

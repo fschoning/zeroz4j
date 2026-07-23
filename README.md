@@ -102,6 +102,7 @@ This repository contains the core framework and reference implementations.
 * **[Detailed Protocol Specification](docs/PROTOCOL.md)** - Deep dive into the binary WebSocket frame structure and architecture.
 * **[Server Events: Typed Push Topics](docs/SERVER_EVENTS.md)** - Broadcasting typed, fire-and-forget events from the server to connected clients.
 * **[Signals: Client-Side Reactive State](docs/SIGNALS.md)** - Reactive UI state with `ValueSignal`, `Computed`, and `Effect`.
+* **[Validation: Annotate Once, Enforce Everywhere](docs/VALIDATION.md)** - Model annotations enforced by the client binder and automatically by the server.
 * **[Agent Prompts: Build a Zeroz4j App](docs/AGENT_PROMPTS.md)** - Ready-to-paste prompts for building Zeroz4j apps with an AI coding agent.
 
 ---
