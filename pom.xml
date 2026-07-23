@@ -55,7 +55,7 @@
         <module>zeroz4j-client-wasm</module>
         <module>zeroz4j-server-core</module>
         <module>zeroz4j-server-helidon</module>
-        <module>zeroz4j-example</module>
+        <module>zeroz4j-examples</module>
         <module>zeroz4j-ui-components</module>
         <module>zeroz4j-store-eclipsestore</module>
         <module>zeroz4j-bom</module>
