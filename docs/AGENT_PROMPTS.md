@@ -60,10 +60,12 @@ Framework rules (violating these produces silent runtime failures):
   engine) on the server; subscribe with ServerEvents.on BEFORE fetching initial
   state over RMI, then merge (events are at-most-once, no replay).
 - Shared signals: for broadcast STATE (not occurrences), declare
-  Signals.shared("wire.name", initialValue) once as a constant in the shared
-  module — the constant IS the signal. The server set()s it; client mirrors
-  update automatically and late joiners receive the retained value. Shared
-  signals are server-authoritative: a client-side set() throws.
+  Signals.shared(initialValue) once as a constant in the shared module — the
+  constant IS the signal (wire name defaults to the payload class; pass an
+  explicit name only for multiple signals of one type). The server set()s it
+  with a NEW immutable instance each time; client mirrors update automatically
+  and late joiners receive the retained value. Shared signals are
+  server-authoritative: a client-side set() throws.
 - LiveSync: annotate the state class @LiveSync, mutate it on the server, then call
   syncEngine.notifyChanged(state) — the client's instance updates in place.
 - Persistence: the EclipseStore DataRoot pattern from the reference example
@@ -140,7 +142,7 @@ Simulate monitoring a long-running deployment pipeline:
   EventTopics in this example):
       public final class JobSignals {
           public static final ValueSignal<JobStatus> STATUS =
-                  Signals.shared("job.status", JobStatus.idle());
+                  Signals.shared(JobStatus.idle());
       }
 - @RmiService JobService { void startJob(); } — note: NO status getter; the
   shared signal makes one unnecessary.
@@ -345,6 +347,71 @@ ACCEPTANCE:
 - Non-admins see no delete buttons, and a forced deleteCard() is rejected
   server-side.
 - README explains the event-echo pattern and why it guarantees convergence.
+```
+
+---
+
+## Task 7 — `collab-editor`: bidirectional LiveSync with edit locking
+
+Feature focus: the safe bidirectional pattern — **commands up (RMI), state down (LiveSync)** — coordinated with `LiveMutex` so concurrent editors cannot clobber each other. Reference: `chat-livesync`.
+
+```text
+TASK: Build the example "collab-editor" under zeroz4j-examples/collab-editor.
+Reference example to copy: zeroz4j-examples/chat-livesync. Also study
+com.zeroz4j.api.LiveMutex and its providers (zeroz4j-client-wasm
+ClientLiveMutexProvider, zeroz4j-server-core ServerLiveMutexProvider, and the
+LiveMutexRpc service) before writing any code.
+
+A team profile card that several users can view live but only one can edit at
+a time:
+- Shared model TeamProfile (@LiveSync @BinaryModel): teamName, mission
+  (String), headcount (int), editingBy (String, empty when nobody edits),
+  version (long).
+- @RmiService ProfileService:
+  * TeamProfile getProfile();
+  * void beginEdit();                     // marks editingBy = caller, notifyChanged
+  * void save(TeamProfile updated);       // apply fields, version++, clear editingBy, notifyChanged
+  * void cancelEdit();                    // clear editingBy, notifyChanged
+  All mutations follow the chat-livesync pattern exactly: mutate the DataRoot's
+  TeamProfile on the server, persist via storage.store(...), then call
+  syncEngine.notifyChanged(profile). The server determines the caller from
+  RmiRequestContext.getPrincipal() — never from a client-supplied argument.
+  save() must reject (throw) if the caller is not the current editor.
+- Locking: the EDIT button's click handler acquires the distributed lock
+  BEFORE calling beginEdit():
+      LiveMutex.get(profile).lock();   // suspends the Wasm coroutine if held
+      profileService.beginEdit();
+  and releases it after save()/cancel completes:
+      profileService.save(updated);    // or cancelEdit()
+      LiveMutex.get(profile).unlock();
+  Run this flow on a background thread (new Thread) since lock() and RMI calls
+  suspend. If client-side LiveMutex proves unreliable in practice, fall back to
+  enforcing mutual exclusion purely server-side inside beginEdit() (reject when
+  editingBy is non-empty) — and document which variant you shipped in the
+  README.
+- Client UI (one view):
+  * a read-only card rendering teamName/mission/headcount/version, refreshed on
+    a 1-second background re-render loop (LiveSync updates the object's fields
+    in place; re-rendering is the app's job — state this in the README);
+  * an "Edit" Button that runs the lock+beginEdit flow, then swaps the card for
+    a form (TextFields + Range or TextField for headcount) pre-filled from the
+    profile, with Save and Cancel buttons wired per the locking flow above;
+  * while ANOTHER user edits (editingBy non-empty and not me): disable the Edit
+    button and show a Badge "Editing: <name>".
+- Two browser windows: edits saved in one appear in the other within a second;
+  while one window edits, the other's Edit button is disabled with the badge
+  visible.
+
+ACCEPTANCE:
+- mvn install passes from the root.
+- Concurrent-edit safety: with two windows, clicking Edit in both at once never
+  results in both forms open — one acquires, the other waits (or is rejected,
+  in the fallback variant).
+- A save() forced from a non-editor window (e.g. via a stale form) is rejected
+  server-side, not just hidden client-side.
+- README explains the pattern in one paragraph: LiveSync carries state DOWN,
+  RMI commands carry writes UP, LiveMutex serializes editors — clients never
+  write shared object fields directly.
 ```
 
 ---
