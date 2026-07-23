@@ -81,18 +81,16 @@ public class DashboardView extends VerticalLayout {
     }
 
     private void loadUserInfo() {
-        new Thread(() -> {
-            try {
-                UserInfo info = userService.getUserInfo("anonymous");
-                updateStatValue(nameStat, info.getName());
-                updateStatValue(scoreStat, String.valueOf(info.getScore()));
-                updateStatValue(statusStat, info.isActive() ? "Online" : "Offline");
-            } catch (Exception e) {
-                System.err.println("[zeroz4j] Dashboard error: " + e.getMessage());
-                updateStatValue(nameStat, "Error");
-                updateStatValue(statusStat, "Error");
-            }
-        }).start();
+        try {
+            UserInfo info = userService.getUserInfo("anonymous");
+            updateStatValue(nameStat, info.getName());
+            updateStatValue(scoreStat, String.valueOf(info.getScore()));
+            updateStatValue(statusStat, info.isActive() ? "Online" : "Offline");
+        } catch (Exception e) {
+            System.err.println("[zeroz4j] Dashboard error: " + e.getMessage());
+            updateStatValue(nameStat, "Error");
+            updateStatValue(statusStat, "Error");
+        }
     }
     
     private void updateStatValue(Stat stat, String newValue) {

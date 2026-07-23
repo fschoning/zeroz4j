@@ -137,27 +137,25 @@ public class ChatView extends Card {
     }
 
     private void initLiveSync() {
-        new Thread(() -> {
-            try {
-                liveState = chatService.getState();
-                errorMessageSignal.set("");
-                
-                if (refreshTimerId != -1) {
-                    Window.clearInterval(refreshTimerId);
-                }
-                
-                // Polling to copy LiveSync state into ValueSignal
-                refreshTimerId = Window.setInterval(() -> {
-                    if (liveState != null) {
-                        messagesSignal.set(new ArrayList<>(liveState.getMessages()));
-                    }
-                }, 500);
-
-            } catch (Exception ex) {
-                System.err.println("[zeroz4j] Chat error: " + ex.getMessage());
-                errorMessageSignal.set("Failed to initialize LiveSync: " + ex.getMessage());
+        try {
+            liveState = chatService.getState();
+            errorMessageSignal.set("");
+            
+            if (refreshTimerId != -1) {
+                Window.clearInterval(refreshTimerId);
             }
-        }).start();
+            
+            // Polling to copy LiveSync state into ValueSignal
+            refreshTimerId = Window.setInterval(() -> {
+                if (liveState != null) {
+                    messagesSignal.set(new ArrayList<>(liveState.getMessages()));
+                }
+            }, 500);
+
+        } catch (Exception ex) {
+            System.err.println("[zeroz4j] Chat error: " + ex.getMessage());
+            errorMessageSignal.set("Failed to initialize LiveSync: " + ex.getMessage());
+        }
     }
 }
 

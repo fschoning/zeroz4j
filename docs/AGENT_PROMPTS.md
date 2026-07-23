@@ -39,8 +39,7 @@ Method — follow it exactly:
 2. Register the new module in zeroz4j-examples/pom.xml.
 3. Keep the copied structure: <example>-shared (models + @RmiService interfaces),
    <example>-client (Wasm UI), <example>-server (Helidon server, EclipseStore
-   boilerplate under .../server/store/). Keep the org.teavm.flavour.templates
-   stub classes in the shared module — the TeaVM build needs them.
+   boilerplate under .../server/store/).
 4. Replace the domain code with the task's spec. Package conventions:
    com.zeroz4j.example.model / .api / .client / .server
 5. Update the <title> in both index.html files (client resources and server webapp).
@@ -88,8 +87,11 @@ Framework rules (violating these produces silent runtime failures):
 - Persistence: the EclipseStore DataRoot pattern from the reference example
   (DataRoot + DefaultDataRootProvider + DefaultTenantResolver in .../server/store/).
   After mutating a collection, call storage.store(<the collection>).
-- Blocking RMI calls from the client belong on a background thread
-  (new Thread(...).start() — TeaVM green threads), as the reference examples do.
+- Call RMI services directly from UI handlers and view code — the framework
+  runs them on suspendable green threads (TeaVM coroutines). NEVER spawn
+  new Thread(...): it is redundant, and signal or DOM updates made from a
+  background thread do not repaint until the next UI event. For delayed work
+  use Window.setTimeout.
 
 Hard constraints:
 - Do NOT modify any framework module (zeroz4j-* directories) — examples only.

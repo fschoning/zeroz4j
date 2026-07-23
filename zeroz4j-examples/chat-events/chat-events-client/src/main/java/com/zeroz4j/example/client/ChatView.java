@@ -134,23 +134,21 @@ public class ChatView extends Card {
     }
 
     private void loadHistory() {
-        new Thread(() -> {
-            try {
-                List<ChatMessage> history = chatService.getHistory();
-                // Merge instead of replace: keep messages that arrived as events while the
-                // snapshot was in flight (deduped via ChatMessage value equality).
-                for (ChatMessage msg : history) {
-                    if (!messages.contains(msg)) {
-                        messages.add(msg);
-                    }
+        try {
+            List<ChatMessage> history = chatService.getHistory();
+            // Merge instead of replace: keep messages that arrived as events while the
+            // snapshot was in flight (deduped via ChatMessage value equality).
+            for (ChatMessage msg : history) {
+                if (!messages.contains(msg)) {
+                    messages.add(msg);
                 }
-                messages.sort((a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp()));
-                showError("");
-                render();
-            } catch (Exception ex) {
-                showError("Failed to load chat history: " + ex.getMessage());
             }
-        }).start();
+            messages.sort((a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp()));
+            showError("");
+            render();
+        } catch (Exception ex) {
+            showError("Failed to load chat history: " + ex.getMessage());
+        }
     }
 
     private void render() {

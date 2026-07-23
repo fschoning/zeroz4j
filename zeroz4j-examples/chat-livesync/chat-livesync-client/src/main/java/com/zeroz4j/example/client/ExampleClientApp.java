@@ -46,15 +46,11 @@ public class ExampleClientApp {
                     appRoot.appendChild(new MainLayout().getElement());
                 });
                 // Invalid credentials leave the session anonymous: no AUTH frame arrives.
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException ignored) {
-                    }
+                Window.setTimeout(() -> {
                     if (!RmiSecurityContext.isAuthenticated()) {
                         loginHolder[0].showError("Sign-in failed - try demo/demo or admin/admin");
                     }
-                }).start();
+                }, 3000);
             });
         });
         loginHolder[0].setHint("Demo users: demo / demo · admin / admin");

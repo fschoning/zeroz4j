@@ -233,14 +233,12 @@ public class TodoView extends Card {
     }
 
     private void loadTasks() {
-        new Thread(() -> {
-            try {
-                tasks.set(new ArrayList<>(taskService.getTasks()));
-                errorMessage.set("");
-            } catch (Exception ex) {
-                errorMessage.set("Failed to load tasks: " + ex.getMessage());
-            }
-        }).start();
+        try {
+            tasks.set(new ArrayList<>(taskService.getTasks()));
+            errorMessage.set("");
+        } catch (Exception ex) {
+            errorMessage.set("Failed to load tasks: " + ex.getMessage());
+        }
     }
 
     /**

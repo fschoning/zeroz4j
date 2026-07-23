@@ -35,6 +35,9 @@
         <module>chat-events</module>
         <module>todo-signals</module>
         <module>chat-livesync</module>
+        <module>form-signup</module>
+        <module>job-monitor</module>
+        <module>inventory-crud</module>
     </modules>
 
 </project>
