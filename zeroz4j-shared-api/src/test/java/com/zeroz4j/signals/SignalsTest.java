@@ -69,6 +69,16 @@ public class SignalsTest {
     }
 
     @Test
+    public void testSharedDerivesNameFromValueClass() {
+        ValueSignal<String> signal = Signals.shared("hello");
+        assertSame(signal, Signals.lookup("java.lang.String"));
+        assertSame(signal, Signals.shared("world"), "Same type without a name is the same default signal");
+        assertEquals("hello", signal.get());
+
+        assertThrows(IllegalArgumentException.class, () -> Signals.shared(null));
+    }
+
+    @Test
     public void testSharedIsIdempotentByName() {
         ValueSignal<String> first = Signals.shared("test.same", "x");
         ValueSignal<String> second = Signals.shared("test.same", "ignored");

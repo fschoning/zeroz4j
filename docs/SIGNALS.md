@@ -59,7 +59,7 @@ A signal created with `Signals.shared(name, initialValue)` is the same `ValueSig
 // shared module
 public final class JobSignals {
     public static final ValueSignal<JobStatus> STATUS =
-            Signals.shared("job.status", JobStatus.idle());
+            Signals.shared(JobStatus.idle());
 }
 ```
 
@@ -78,7 +78,7 @@ Semantics and current limits, stated plainly:
 * **Server-authoritative** — in this release a client-side `set()` on a shared signal throws `IllegalStateException`. Change shared state on the server; keep client-only state in local signals. (Client-writable shared signals with per-signal authorization are planned.)
 * **Latest-wins state, not events** — consecutive equal values are deduplicated, and there is no history or replay of intermediate values. For discrete occurrences use [server events](SERVER_EVENTS.md).
 * **Serializable payloads** — the value type must be wire-serializable (`@BinaryModel` or a `BinarySerializer`-supported type). Treat shared values as immutable: `set()` a new instance, never mutate the current one.
-* The wire name is an explicit string because it is the only identity that is stable across the separately-loaded server JVM and Wasm client at runtime.
+* **Naming** — the wire name defaults to the payload's class name (the same runtime identity the binary serializer already puts on the wire), giving one default signal per type. Need several signals of the same type, or a stable name across payload-class renames? Use `Signals.shared("explicit.name", initialValue)`.
 
 ## Component binding
 

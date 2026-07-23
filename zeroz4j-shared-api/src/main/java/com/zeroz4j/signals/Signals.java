@@ -65,6 +65,29 @@ public final class Signals {
     private Signals() {}
 
     /**
+     * Declares (or returns the existing) shared signal named after the value's class.
+     *
+     * <p>The wire name defaults to {@code initialValue.getClass().getName()} — the same
+     * runtime class identity the binary serializer already writes on the wire. One default
+     * signal exists per payload type; declare additional signals of the same type with
+     * {@link #shared(String, Object)} and explicit names.</p>
+     *
+     * @param <T>          value type; must be wire-serializable
+     * @param initialValue value both tiers hold until the first synchronization; non-null,
+     *                     since the name derives from its class
+     * @return the shared signal — use it exactly like any other {@link ValueSignal}
+     * @throws IllegalArgumentException if {@code initialValue} is null
+     */
+    public static <T> ValueSignal<T> shared(T initialValue) {
+        if (initialValue == null) {
+            throw new IllegalArgumentException(
+                    "shared(initialValue) derives the wire name from the value's class and needs a "
+                    + "non-null initial value; use shared(name, initialValue) to start from null");
+        }
+        return shared(initialValue.getClass().getName(), initialValue);
+    }
+
+    /**
      * Declares (or returns the existing) shared signal bound to the given wire name.
      *
      * @param <T>          value type; must be wire-serializable
