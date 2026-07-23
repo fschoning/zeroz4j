@@ -21,6 +21,7 @@ import com.zeroz4j.api.BinarySerializer;
 import com.zeroz4j.api.GrowableBuffer;
 import com.zeroz4j.api.ObjectMapper;
 import com.zeroz4j.api.SyncFrameTypes;
+import com.zeroz4j.api.ClientWritable;
 import com.zeroz4j.api.EventTopic;
 import com.zeroz4j.api.RmiService;
 import com.zeroz4j.api.validation.ValidationRegistry;
@@ -294,6 +295,81 @@ public class WasmRmiServerEngine implements EventPublisher {
         broadcastPush(topic.name(), payload);
     }
 
+    /**
+     * Handles a client's whole-object mutation of a {@code @ClientWritable} live model.
+     *
+     * <p>Two-pass decode: the payload is first deserialized with a throwaway mapper into a
+     * fresh instance for authorization (annotation + roles) and validation — the canonical
+     * object is untouched if the mutation is rejected. On acceptance the buffer is rewound
+     * and deserialized through the real mapper, which applies the state to the canonical
+     * instance in place; listeners are notified and the change is re-broadcast to all
+     * sessions. On rejection the writer receives a session-targeted corrective sync of the
+     * canonical state, reverting its optimistic local change.</p>
+     */
+    @SuppressWarnings("unchecked")
+    private void handleLiveMutation(ByteBuffer buffer, Session session) {
+        int payloadStart = buffer.position();
+
+        Object proposed;
+        ObjectMapper tempMapper = new ObjectMapper();
+        try {
+            proposed = BinarySerializer.readValue(buffer, tempMapper);
+        } catch (Exception e) {
+            LOG.warning("[zeroz4j] Rejected undecodable live mutation from session "
+                + session.getId() + ": " + e.getMessage());
+            return;
+        }
+        if (proposed == null) {
+            return;
+        }
+
+        String canonicalId = tempMapper.getId(proposed);
+        Object canonical = canonicalId != null ? mapper.getObject(canonicalId) : null;
+
+        ClientWritable writable = proposed.getClass().getAnnotation(ClientWritable.class);
+        boolean allowed = writable != null && canonical != null;
+        if (allowed && writable.value().length > 0) {
+            Set<String> userRoles = (Set<String>) session.getUserProperties().get(RmiEndpointConfigurator.ROLES_KEY);
+            boolean hasRole = false;
+            if (userRoles != null) {
+                for (String required : writable.value()) {
+                    if (userRoles.contains(required)) {
+                        hasRole = true;
+                        break;
+                    }
+                }
+            }
+            allowed = hasRole;
+        }
+        java.util.List<String> violations = allowed
+            ? ValidationRegistry.validate(proposed)
+            : java.util.Collections.emptyList();
+
+        if (allowed && violations.isEmpty()) {
+            buffer.position(payloadStart);
+            Object applied = BinarySerializer.readValue(buffer, mapper); // in-place apply
+            Principal principal = (Principal) session.getUserProperties().get(RmiEndpointConfigurator.PRINCIPAL_KEY);
+            try {
+                for (LiveMutationListener listener : CDI.current().select(LiveMutationListener.class)) {
+                    listener.onMutated(applied, principal);
+                }
+            } catch (Exception e) {
+                LOG.warning("[zeroz4j] LiveMutationListener error: " + e.getMessage());
+            }
+            syncEngine.notifyChanged(applied);
+        } else if (canonical != null) {
+            if (writable == null) {
+                LOG.warning("[zeroz4j] Rejected live mutation of non-@ClientWritable "
+                    + proposed.getClass().getName() + " from session " + session.getId());
+            } else if (!violations.isEmpty()) {
+                LOG.info("[zeroz4j] Rejected invalid live mutation of "
+                    + proposed.getClass().getSimpleName() + ": " + String.join("; ", violations));
+            }
+            // Corrective: revert the writer's optimistic local change to server truth.
+            syncEngine.notifyChanged(canonical, SyncEngine.SyncScope.SESSION, session.getId());
+        }
+    }
+
     private static void validateArgument(Object arg) {
         if (arg == null) {
             return;
@@ -423,6 +499,14 @@ public class WasmRmiServerEngine implements EventPublisher {
                             if (signalName instanceof String) {
                                 ServerSignalTransport.handleClientSet((String) signalName, newValue, session);
                             }
+                        }
+                        return;
+                    }
+
+                    // Framework-internal frames: two-way LiveSync mutations
+                    if (SyncFrameTypes.LIVESYNC_SERVICE.equals(interfaceName)) {
+                        if ("mutate".equals(methodName) && argumentCount == 1) {
+                            handleLiveMutation(buffer, session);
                         }
                         return;
                     }

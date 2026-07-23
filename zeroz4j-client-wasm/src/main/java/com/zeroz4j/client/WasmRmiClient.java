@@ -84,6 +84,10 @@ public class WasmRmiClient {
         uiScheduler = scheduler;
     }
 
+    static PlatformScheduler getPlatformScheduler() {
+        return uiScheduler;
+    }
+
     /**
      * Initializes the Wasm RMI client engine with a WebSocket network channel and registers RMI client delegates.
      *
@@ -99,6 +103,7 @@ public class WasmRmiClient {
         networkChannel = channel;
         networkChannel.registerBinaryMessageHandler(WasmRmiClient::routeIncomingMessage);
         ClientSignalTransport.install();
+        LiveMutations.install();
     }
 
     /**
@@ -173,6 +178,17 @@ public class WasmRmiClient {
 
     static void routeIncomingMessage(byte[] rawPayload) {
         sweepStaleRequests();
+        // Inbound deserialization populates live instances through their setters;
+        // suppress mutation tracking so applied state is never echoed back as a write.
+        com.zeroz4j.api.LiveMutationTracker.beginRemoteApply();
+        try {
+            routeIncomingMessageInternal(rawPayload);
+        } finally {
+            com.zeroz4j.api.LiveMutationTracker.endRemoteApply();
+        }
+    }
+
+    private static void routeIncomingMessageInternal(byte[] rawPayload) {
         ByteBuffer buffer;
         int correlationId;
         byte frameType;

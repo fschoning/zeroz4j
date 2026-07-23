@@ -40,6 +40,9 @@ import java.util.function.Supplier;
 public class BinaryRegistry {
     private static final Map<String, Supplier<Object>> suppliers = new ConcurrentHashMap<>();
     private static final Map<String, BinarySerializerDelegate<?>> delegates = new ConcurrentHashMap<>();
+    /** Instrumented (mutation-tracking) suppliers for @ClientWritable models. */
+    private static final Map<String, Supplier<Object>> liveSuppliers = new ConcurrentHashMap<>();
+    private static volatile boolean preferLiveInstances = false;
 
     /**
      * Discovers and invokes all {@link BinaryRegistrar} implementations on the
@@ -70,6 +73,28 @@ public class BinaryRegistry {
     public static <T> void register(String className, Supplier<T> supplier, BinarySerializerDelegate<T> delegate) {
         suppliers.put(className, (Supplier<Object>) (Supplier<?>) supplier);
         delegates.put(className, delegate);
+    }
+
+    /**
+     * Registers the mutation-tracking supplier for a {@code @ClientWritable} model.
+     * Called by generated registrars; only used when {@link #setPreferLiveInstances(boolean)}
+     * has enabled live instantiation (the Wasm client tier).
+     *
+     * @param className the canonical FQCN of the model class
+     * @param supplier  supplier for the generated {@code <Model>_Live} subclass
+     */
+    public static void registerLive(String className, Supplier<?> supplier) {
+        liveSuppliers.put(className, (Supplier<Object>) (Supplier<?>) supplier);
+    }
+
+    /**
+     * Enables or disables preferring mutation-tracking instances during deserialization.
+     * The Wasm client runtime enables this at bootstrap; the server never does.
+     *
+     * @param prefer true to instantiate {@code <Model>_Live} subclasses where registered
+     */
+    public static void setPreferLiveInstances(boolean prefer) {
+        preferLiveInstances = prefer;
     }
     
     /**
@@ -107,9 +132,15 @@ public class BinaryRegistry {
      * Executes {@code supplier.get()} to instantiate the object without reflection.</p>
      */
     public static Object create(String className) {
+        if (preferLiveInstances) {
+            Supplier<Object> liveSupplier = liveSuppliers.get(className);
+            if (liveSupplier != null) {
+                return liveSupplier.get();
+            }
+        }
         Supplier<Object> supplier = suppliers.get(className);
         if (supplier == null) {
-            throw new IllegalArgumentException("Unknown @DataModel class: " + className 
+            throw new IllegalArgumentException("Unknown @DataModel class: " + className
                 + ". Make sure it is registered.");
         }
         return supplier.get();

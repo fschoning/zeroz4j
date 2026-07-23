@@ -322,6 +322,20 @@ public class WasmRmiClientTest {
     }
 
     @Test
+    public void testLiveMutationSendsMutateFrame() throws Exception {
+        // initialize() installed the mutation listener; with no scheduler, flush is immediate.
+        com.zeroz4j.api.LiveMutationTracker.fieldChanged("mutated-state");
+
+        assertEquals(1, channel.sentMessages.size());
+        ByteBuffer sent = ByteBuffer.wrap(channel.sentMessages.get(0));
+        assertEquals(0, sent.getInt());
+        assertEquals("zeroz4j.livesync", BinarySerializer.readString(sent));
+        assertEquals("mutate", BinarySerializer.readString(sent));
+        assertEquals(1, sent.getInt());
+        assertEquals("mutated-state", BinarySerializer.readValue(sent, WasmRmiClient.MAPPER));
+    }
+
+    @Test
     public void testPendingRequestTimeout() throws Exception {
         WasmRmiClient.setRequestTimeout(1);
         try {

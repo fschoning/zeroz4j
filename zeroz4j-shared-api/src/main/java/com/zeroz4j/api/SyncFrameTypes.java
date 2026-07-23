@@ -49,6 +49,12 @@ public final class SyncFrameTypes {
      *  the server engine intercepts this before service dispatch. */
     public static final String SIGNALS_SERVICE = "zeroz4j.signals";
 
+    /** Reserved interface name for framework-internal LiveSync mutation frames. The client
+     *  proposes a state change via {@code zeroz4j.livesync#mutate(object)}; the server engine
+     *  intercepts, authorizes (@ClientWritable + roles), validates, applies in place, and
+     *  re-broadcasts — or answers the writer with a corrective sync. */
+    public static final String LIVESYNC_SERVICE = "zeroz4j.livesync";
+
     /** RPC error response byte tag (0x0F). Payload: correlation ID + error message string. */
     public static final byte RPC_ERROR    = 0x0F;
 

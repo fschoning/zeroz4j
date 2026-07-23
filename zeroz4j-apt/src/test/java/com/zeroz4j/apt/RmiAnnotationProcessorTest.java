@@ -222,4 +222,58 @@ public class RmiAnnotationProcessorTest {
         assertTrue(registrarContent.contains("ValidationRegistry.register(\"com.test.Registration\""),
                 "Registrar must register the generated validator");
     }
+
+    @Test
+    public void testClientWritableLiveSubclassGeneration(@TempDir Path tempDir) throws Exception {
+        Path srcDir = tempDir.resolve("src");
+        Files.createDirectories(srcDir.resolve("com/test"));
+
+        String modelSrc = "package com.test;\n" +
+                "import com.zeroz4j.api.DataModel;\n" +
+                "import com.zeroz4j.api.LiveSync;\n" +
+                "import com.zeroz4j.api.ClientWritable;\n" +
+                "@DataModel @LiveSync @ClientWritable\n" +
+                "public class Profile {\n" +
+                "    private String mission;\n" +
+                "    private int headcount;\n" +
+                "    public String getMission() { return mission; }\n" +
+                "    public void setMission(String v) { this.mission = v; }\n" +
+                "    public int getHeadcount() { return headcount; }\n" +
+                "    public void setHeadcount(int v) { this.headcount = v; }\n" +
+                "}\n";
+
+        Files.writeString(srcDir.resolve("com/test/Profile.java"), modelSrc);
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(
+                Collections.singletonList(srcDir.resolve("com/test/Profile.java").toFile()));
+
+        Path outDir = tempDir.resolve("out");
+        Files.createDirectories(outDir);
+
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        JavaCompiler.CompilationTask task = compiler.getTask(
+                null, fileManager, diagnostics,
+                Arrays.asList("-d", outDir.toString(), "-s", outDir.toString()),
+                null, compilationUnits);
+        task.setProcessors(Collections.singletonList(new RmiAnnotationProcessor()));
+
+        boolean success = task.call();
+        for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+            System.err.println(diagnostic);
+        }
+        assertTrue(success, "Compilation should succeed");
+
+        String liveContent = Files.readString(outDir.resolve("com/test/Profile_Live.java"));
+        assertTrue(liveContent.contains("class Profile_Live extends Profile"));
+        assertTrue(liveContent.contains("public void setMission(java.lang.String value)"));
+        assertTrue(liveContent.contains("public void setHeadcount(int value)"));
+        assertTrue(liveContent.contains("LiveMutationTracker.fieldChanged(this)"));
+
+        String registrarContent = Files.readString(
+                outDir.resolve("com/zeroz4j/generated/BinaryPackableRegistrar.java"));
+        assertTrue(registrarContent.contains("registerLive(\"com.test.Profile\", com.test.Profile_Live::new)"),
+                "Registrar must register the live supplier");
+    }
 }
