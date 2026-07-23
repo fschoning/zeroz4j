@@ -293,6 +293,35 @@ public class WasmRmiClientTest {
     }
 
     @Test
+    public void testWritableSharedSignalSendsOptimisticWrite() throws Exception {
+        com.zeroz4j.signals.ValueSignal<String> mirror =
+                com.zeroz4j.signals.Signals.sharedWritable("test.theme", "dark");
+        assertEquals(1, channel.sentMessages.size()); // subscribe on declaration
+
+        mirror.set("light");
+        assertEquals("light", mirror.get(), "Optimistic local apply");
+
+        assertEquals(2, channel.sentMessages.size());
+        ByteBuffer sent = ByteBuffer.wrap(channel.sentMessages.get(1));
+        assertEquals(0, sent.getInt());
+        assertEquals("zeroz4j.signals", BinarySerializer.readString(sent));
+        assertEquals("set", BinarySerializer.readString(sent));
+        assertEquals(2, sent.getInt());
+        assertEquals("test.theme", BinarySerializer.readValue(sent, WasmRmiClient.MAPPER));
+        assertEquals("light", BinarySerializer.readValue(sent, WasmRmiClient.MAPPER));
+
+        // A corrective SIGNAL_UPD (rejection) snaps the mirror back to server truth
+        GrowableBuffer corrective = new GrowableBuffer();
+        corrective.putInt(0);
+        corrective.put((byte) 0x17); // SIGNAL_UPD
+        BinarySerializer.writeString(corrective, "test.theme");
+        BinarySerializer.writeValue(corrective, "dark", WasmRmiClient.MAPPER);
+        WasmRmiClient.routeIncomingMessage(corrective.toByteArray());
+        assertEquals("dark", mirror.get());
+        assertEquals(2, channel.sentMessages.size(), "Corrective apply must not re-send");
+    }
+
+    @Test
     public void testPendingRequestTimeout() throws Exception {
         WasmRmiClient.setRequestTimeout(1);
         try {

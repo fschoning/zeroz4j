@@ -17,11 +17,13 @@
  */
 package com.zeroz4j.ui.component;
 
+import com.zeroz4j.api.validation.FieldRule;
 import com.zeroz4j.signals.Signal;
 import com.zeroz4j.signals.ValueSignal;
 import com.zeroz4j.signals.Effect;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -32,6 +34,9 @@ public abstract class AbstractField<C extends Component, T> extends Component im
     private final List<ValueChangeListener<T>> listeners = new ArrayList<>();
     private ValueSignal<T> modelSignal;
     private boolean signalUpdating = false;
+    private FieldRule<T> rule;
+    private List<String> violations = Collections.emptyList();
+    private boolean touched = false;
     
     public AbstractField(String tagName, T emptyValue) {
         super(tagName);
@@ -91,6 +96,64 @@ public abstract class AbstractField<C extends Component, T> extends Component im
         }
     }
     
+    /**
+     * Attaches a validation rule, typically from an APT-generated {@code <Model>_Rules}
+     * class so the field enforces the same annotations the server does:
+     * <pre>{@code
+     * nameField.withRule(Registration_Rules.fullName());
+     * }</pre>
+     *
+     * <p>The rule runs on every value change. Once the user has touched the field, the
+     * component carries the {@code input-error} style class while invalid; violations are
+     * available via {@link #getViolations()} regardless of touch state, so form-level
+     * validity ({@link #isValid()}) is accurate from the start.</p>
+     *
+     * @param rule the field rule
+     * @return this field, for chaining
+     */
+    @SuppressWarnings("unchecked")
+    public C withRule(FieldRule<T> rule) {
+        this.rule = rule;
+        revalidate(false);
+        return (C) this;
+    }
+
+    /**
+     * Returns whether the current value satisfies the attached rule (true when no rule
+     * is attached).
+     *
+     * @return true if valid
+     */
+    public boolean isValid() {
+        return violations.isEmpty();
+    }
+
+    /**
+     * Returns the current violation messages (empty when valid or no rule attached).
+     *
+     * @return violation messages
+     */
+    public List<String> getViolations() {
+        return violations;
+    }
+
+    private void revalidate(boolean fromClient) {
+        if (rule == null) {
+            return;
+        }
+        violations = rule.validate(value);
+        if (fromClient) {
+            touched = true;
+        }
+        if (touched) {
+            if (violations.isEmpty()) {
+                removeClassName("input-error");
+            } else {
+                addClassName("input-error");
+            }
+        }
+    }
+
     protected void setModelValue(T value, boolean isFromClient) {
         T oldValue = this.value;
         this.value = value;
@@ -98,17 +161,18 @@ public abstract class AbstractField<C extends Component, T> extends Component im
             if (!isFromClient) {
                 setPresentationValue(value);
             }
-            
+            revalidate(isFromClient);
+
             ValueChangeEvent<T> event = new ValueChangeEvent<>(this, oldValue, value, isFromClient);
             for (ValueChangeListener<T> listener : listeners) {
                 listener.valueChanged(event);
             }
-            
+
             if (this.modelSignal != null && isFromClient && !signalUpdating) {
                 this.modelSignal.set(value);
             }
         }
     }
-    
+
     protected abstract void setPresentationValue(T newPresentationValue);
 }

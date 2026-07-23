@@ -94,11 +94,29 @@ final class ClientSignalTransport implements SignalTransport {
 
     @Override
     public boolean canSet(SharedValueSignal<?> signal) {
-        return false;
+        return signal.isClientWritable();
     }
 
     @Override
     public void afterSet(SharedValueSignal<?> signal, Object newValue) {
-        // Unreachable while canSet is false.
+        // Optimistic write: the local mirror is already updated; send the value to the
+        // authoritative server, which either broadcasts it (confirming echo) or answers
+        // with a corrective update that snaps this mirror back.
+        if (WasmRmiClient.networkChannel == null) {
+            return;
+        }
+        try {
+            GrowableBuffer buffer = new GrowableBuffer();
+            buffer.putInt(0); // fire-and-forget
+            BinarySerializer.writeString(buffer, SyncFrameTypes.SIGNALS_SERVICE);
+            BinarySerializer.writeString(buffer, "set");
+            buffer.putInt(2);
+            BinarySerializer.writeValue(buffer, signal.name(), WasmRmiClient.MAPPER);
+            BinarySerializer.writeValue(buffer, newValue, WasmRmiClient.MAPPER);
+            WasmRmiClient.networkChannel.sendRawBytes(buffer.toByteArray());
+        } catch (Exception e) {
+            System.err.println("[zeroz4j] Failed to send write for shared signal '"
+                    + signal.name() + "': " + e.getMessage());
+        }
     }
 }

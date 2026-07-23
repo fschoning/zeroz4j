@@ -91,6 +91,56 @@ public final class ServerSignalTransport implements SignalTransport {
     }
 
     /**
+     * Handles a client's write to a shared signal. The server stays authoritative:
+     * the write is accepted only if the signal is declared client-writable, the session
+     * holds a required write role (when roles are declared), and the value passes its
+     * model validation annotations. Accepted writes broadcast to all sessions — the
+     * writer's echo confirms its optimistic update. Rejected writes answer the writer
+     * with the current retained value, snapping its mirror back to server truth.
+     *
+     * @param signalName wire name of the signal being written
+     * @param newValue   proposed value
+     * @param session    writing session
+     */
+    @SuppressWarnings("unchecked")
+    static void handleClientSet(String signalName, Object newValue, Session session) {
+        ServerSignalTransport transport = instance;
+        if (transport == null) {
+            return;
+        }
+        SharedValueSignal<?> signal = Signals.lookup(signalName);
+        if (signal == null) {
+            return;
+        }
+
+        boolean allowed = signal.isClientWritable();
+        if (allowed && !signal.writeRoles().isEmpty()) {
+            Set<String> userRoles = (Set<String>) session.getUserProperties().get(RmiEndpointConfigurator.ROLES_KEY);
+            boolean hasRole = false;
+            if (userRoles != null) {
+                for (String required : signal.writeRoles()) {
+                    if (userRoles.contains(required)) {
+                        hasRole = true;
+                        break;
+                    }
+                }
+            }
+            allowed = hasRole;
+        }
+        java.util.List<String> violations = allowed
+                ? com.zeroz4j.api.validation.ValidationRegistry.validate(newValue)
+                : java.util.Collections.emptyList();
+
+        if (allowed && violations.isEmpty()) {
+            // Server-side set: broadcasts to all sessions, including the writer's echo.
+            ((SharedValueSignal<Object>) signal).set(newValue);
+        } else {
+            // Corrective update: revert the writer's optimistic apply to server truth.
+            WasmRmiServerEngine.sendSignalUpdate(session, signalName, signal.get(), transport.mapper);
+        }
+    }
+
+    /**
      * Drops a closed session from any parked subscriptions.
      *
      * @param session the closed session

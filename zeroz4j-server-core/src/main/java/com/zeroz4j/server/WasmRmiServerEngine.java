@@ -23,6 +23,7 @@ import com.zeroz4j.api.ObjectMapper;
 import com.zeroz4j.api.SyncFrameTypes;
 import com.zeroz4j.api.EventTopic;
 import com.zeroz4j.api.RmiService;
+import com.zeroz4j.api.validation.ValidationRegistry;
 import com.zeroz4j.api.RolesAllowed;
 import com.zeroz4j.api.Secured;
 import jakarta.annotation.PostConstruct;
@@ -293,8 +294,25 @@ public class WasmRmiServerEngine implements EventPublisher {
         broadcastPush(topic.name(), payload);
     }
 
+    private static void validateArgument(Object arg) {
+        if (arg == null) {
+            return;
+        }
+        if (arg instanceof java.util.List) {
+            for (Object element : (java.util.List<?>) arg) {
+                validateArgument(element);
+            }
+            return;
+        }
+        java.util.List<String> violations = ValidationRegistry.validate(arg);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException("Validation failed for "
+                + arg.getClass().getSimpleName() + ": " + String.join("; ", violations));
+        }
+    }
+
     /**
-     * Sends a shared-signal value (0x05 SIGNAL_UPDATE) to a single session.
+     * Sends a shared-signal value (0x17 SIGNAL_UPD) to a single session.
      *
      * @param session target session
      * @param name    shared signal wire name
@@ -319,7 +337,7 @@ public class WasmRmiServerEngine implements EventPublisher {
     }
 
     /**
-     * Broadcasts a shared-signal value (0x05 SIGNAL_UPDATE) to all active sessions.
+     * Broadcasts a shared-signal value (0x17 SIGNAL_UPD) to all active sessions.
      *
      * @param name   shared signal wire name
      * @param value  current value
@@ -392,12 +410,18 @@ public class WasmRmiServerEngine implements EventPublisher {
                     String methodName = BinarySerializer.readString(buffer);
                     int argumentCount = buffer.getInt();
 
-                    // Framework-internal frames: shared signal subscription requests
+                    // Framework-internal frames: shared signal subscriptions and client writes
                     if (SyncFrameTypes.SIGNALS_SERVICE.equals(interfaceName)) {
                         if ("subscribe".equals(methodName) && argumentCount == 1) {
                             Object signalName = BinarySerializer.readValue(buffer, mapper);
                             if (signalName instanceof String) {
                                 ServerSignalTransport.handleSubscribe((String) signalName, session);
+                            }
+                        } else if ("set".equals(methodName) && argumentCount == 2) {
+                            Object signalName = BinarySerializer.readValue(buffer, mapper);
+                            Object newValue = BinarySerializer.readValue(buffer, mapper);
+                            if (signalName instanceof String) {
+                                ServerSignalTransport.handleClientSet((String) signalName, newValue, session);
                             }
                         }
                         return;
@@ -451,6 +475,12 @@ public class WasmRmiServerEngine implements EventPublisher {
                     Object[] extractedArguments = new Object[argumentCount];
                     for (int i = 0; i < argumentCount; i++) {
                         extractedArguments[i] = BinarySerializer.readValue(buffer, mapper);
+                    }
+
+                    // Model validation annotations are authoritative server-side:
+                    // reject calls whose arguments violate their declared constraints.
+                    for (Object arg : extractedArguments) {
+                        validateArgument(arg);
                     }
 
                     Object executionResult;

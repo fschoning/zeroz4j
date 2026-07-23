@@ -111,6 +111,37 @@ public class SignalsTest {
     }
 
     @Test
+    public void testSharedWritableCarriesAuthorityMetadata() {
+        Signals.sharedWritable("test.writable", "x", "admin", "editor");
+        SharedValueSignal<?> handle = Signals.lookup("test.writable");
+        assertTrue(handle.isClientWritable());
+        assertEquals(java.util.Set.of("admin", "editor"), handle.writeRoles());
+
+        Signals.shared("test.readonly", "y");
+        assertTrue(!Signals.lookup("test.readonly").isClientWritable());
+    }
+
+    @Test
+    public void testWritableSignalPassesTransportCanSet() {
+        RecordingTransport transport = new RecordingTransport() {
+            @Override
+            public boolean canSet(SharedValueSignal<?> signal) {
+                return signal.isClientWritable(); // mimic the client transport
+            }
+        };
+        Signals.installTransport(transport);
+
+        ValueSignal<String> readOnly = Signals.shared("test.ro", "a");
+        ValueSignal<String> writable = Signals.sharedWritable("test.rw", "a");
+
+        assertThrows(IllegalStateException.class, () -> readOnly.set("blocked"));
+
+        writable.set("accepted");
+        assertEquals("accepted", writable.get(), "Optimistic local apply");
+        assertEquals(List.of("accepted"), transport.afterSets, "Write forwarded to transport");
+    }
+
+    @Test
     public void testCanSetFalseBlocksLocalWritesButNotRemoteApplies() {
         RecordingTransport transport = new RecordingTransport();
         transport.allowSet = false;

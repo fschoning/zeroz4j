@@ -168,4 +168,65 @@ public class RmiAnnotationProcessorTest {
         assertTrue(stubContent.contains("\"ping\""), "Stub should implement the inherited method");
         assertTrue(!stubContent.contains("version"), "Stub must not override default methods");
     }
+
+    @Test
+    public void testValidationRulesGeneration(@TempDir Path tempDir) throws Exception {
+        Path srcDir = tempDir.resolve("src");
+        Files.createDirectories(srcDir.resolve("com/test"));
+
+        String modelSrc = "package com.test;\n" +
+                "import com.zeroz4j.api.BinaryModel;\n" +
+                "import com.zeroz4j.api.BinaryPackable;\n" +
+                "import com.zeroz4j.api.validation.*;\n" +
+                "@BinaryModel\n" +
+                "public class Registration implements BinaryPackable {\n" +
+                "    @NotBlank @Size(min = 2, max = 40)\n" +
+                "    private String fullName;\n" +
+                "    @Min(0) @Max(50)\n" +
+                "    private int experience;\n" +
+                "    private String note;\n" + // unconstrained
+                "    public String getFullName() { return fullName; }\n" +
+                "    public void setFullName(String v) { this.fullName = v; }\n" +
+                "    public int getExperience() { return experience; }\n" +
+                "    public void setExperience(int v) { this.experience = v; }\n" +
+                "    public String getNote() { return note; }\n" +
+                "    public void setNote(String v) { this.note = v; }\n" +
+                "}\n";
+
+        Files.writeString(srcDir.resolve("com/test/Registration.java"), modelSrc);
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(
+                Collections.singletonList(srcDir.resolve("com/test/Registration.java").toFile()));
+
+        Path outDir = tempDir.resolve("out");
+        Files.createDirectories(outDir);
+
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        JavaCompiler.CompilationTask task = compiler.getTask(
+                null, fileManager, diagnostics,
+                Arrays.asList("-d", outDir.toString(), "-s", outDir.toString()),
+                null, compilationUnits);
+        task.setProcessors(Collections.singletonList(new RmiAnnotationProcessor()));
+
+        boolean success = task.call();
+        for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+            System.err.println(diagnostic);
+        }
+        assertTrue(success, "Compilation should succeed");
+
+        String rulesContent = Files.readString(outDir.resolve("com/test/Registration_Rules.java"));
+        assertTrue(rulesContent.contains("FieldRule<java.lang.String> fullName()"));
+        assertTrue(rulesContent.contains("must not be blank"));
+        assertTrue(rulesContent.contains("length must be between 2 and 40"));
+        assertTrue(rulesContent.contains("FieldRule<java.lang.Integer> experience()"));
+        assertTrue(rulesContent.contains("must be at most 50"));
+        assertTrue(!rulesContent.contains("note()"), "Unconstrained fields get no rule");
+
+        String registrarContent = Files.readString(
+                outDir.resolve("com/zeroz4j/generated/BinaryPackableRegistrar.java"));
+        assertTrue(registrarContent.contains("ValidationRegistry.register(\"com.test.Registration\""),
+                "Registrar must register the generated validator");
+    }
 }

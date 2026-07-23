@@ -96,8 +96,52 @@ public final class Signals {
      * @return the shared signal — use it exactly like any other {@link ValueSignal}
      * @throws IllegalArgumentException if {@code name} is null or blank
      */
+    public static <T> ValueSignal<T> shared(String name, T initialValue) {
+        return declare(name, initialValue, false, java.util.Collections.emptySet());
+    }
+
+    /**
+     * Declares a shared signal that clients may also set, named after the value's class.
+     *
+     * <p>Client writes are optimistic: the local mirror updates immediately, the write is
+     * sent to the server, and the server — which stays authoritative — either accepts it
+     * (broadcasting to everyone, confirming the writer via the echo) or rejects it
+     * (role check or validation annotations), in which case a corrective update snaps the
+     * writer back to server truth. Last accepted write wins.</p>
+     *
+     * <p>Any session may write; to restrict writes to roles, use
+     * {@link #sharedWritable(String, Object, String...)} with an explicit name.</p>
+     *
+     * @param <T>          value type; must be wire-serializable
+     * @param initialValue value both tiers hold until the first synchronization; non-null
+     * @return the shared signal
+     */
+    public static <T> ValueSignal<T> sharedWritable(T initialValue) {
+        if (initialValue == null) {
+            throw new IllegalArgumentException(
+                    "sharedWritable(initialValue) derives the wire name from the value's class and needs a "
+                    + "non-null initial value; use sharedWritable(name, initialValue) to start from null");
+        }
+        return sharedWritable(initialValue.getClass().getName(), initialValue);
+    }
+
+    /**
+     * Declares a client-writable shared signal bound to the given wire name.
+     *
+     * @param <T>          value type; must be wire-serializable
+     * @param name         unique wire name
+     * @param initialValue value both tiers hold until the first synchronization
+     * @param writeRoles   roles allowed to write from a client; empty allows any session
+     * @return the shared signal
+     */
+    public static <T> ValueSignal<T> sharedWritable(String name, T initialValue, String... writeRoles) {
+        java.util.Set<String> roles = new java.util.LinkedHashSet<>(java.util.Arrays.asList(writeRoles));
+        return declare(name, initialValue, true, java.util.Collections.unmodifiableSet(roles));
+    }
+
     @SuppressWarnings("unchecked")
-    public static synchronized <T> ValueSignal<T> shared(String name, T initialValue) {
+    private static synchronized <T> ValueSignal<T> declare(String name, T initialValue,
+                                                           boolean clientWritable, java.util.Set<String> writeRoles) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("shared signal name must not be null or blank");
         }
@@ -105,7 +149,7 @@ public final class Signals {
         if (existing != null) {
             return (ValueSignal<T>) existing;
         }
-        SharedValueSignal<T> signal = new SharedValueSignal<>(name, initialValue);
+        SharedValueSignal<T> signal = new SharedValueSignal<>(name, initialValue, clientWritable, writeRoles);
         registry.put(name, signal);
         SignalTransport current = transport;
         if (current != null) {
