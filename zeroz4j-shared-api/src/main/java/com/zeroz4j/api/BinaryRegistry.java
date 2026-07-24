@@ -21,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -40,6 +41,8 @@ import java.util.function.Supplier;
 public class BinaryRegistry {
     private static final Map<String, Supplier<Object>> suppliers = new ConcurrentHashMap<>();
     private static final Map<String, BinarySerializerDelegate<?>> delegates = new ConcurrentHashMap<>();
+    /** Reflection-free enum resolvers keyed by declaring-class FQCN (e.g. {@code Priority::valueOf}). */
+    private static final Map<String, Function<String, Enum<?>>> enumResolvers = new ConcurrentHashMap<>();
     /** Instrumented (mutation-tracking) suppliers for @ClientWritable models. */
     private static final Map<String, Supplier<Object>> liveSuppliers = new ConcurrentHashMap<>();
     private static volatile boolean preferLiveInstances = false;
@@ -146,6 +149,46 @@ public class BinaryRegistry {
         return supplier.get();
     }
     
+    /**
+     * Registers a reflection-free resolver for an enum type, so enum constants appearing
+     * inside generic containers ({@code List<MyEnum>}, {@code Map<..,MyEnum>}) can be
+     * reconstructed from their {@code name()} without {@code Class.forName}/{@code Enum.valueOf}
+     * reflection (the TeaVM/Wasm client tier has no runtime reflection).
+     *
+     * @param fqcn     the enum's declaring-class fully-qualified name
+     * @param resolver a function mapping a constant name to its enum value, typically {@code MyEnum::valueOf}
+     *
+     * <p><b>Under the hood:</b> Puts {@code resolver} into the {@code enumResolvers} map keyed by
+     * {@code fqcn}. Generated registrars call this for every enum type reachable from a {@code @DataModel}.</p>
+     */
+    public static void registerEnum(String fqcn, Function<String, Enum<?>> resolver) {
+        enumResolvers.put(fqcn, resolver);
+    }
+
+    /**
+     * Resolves an enum constant from its declaring-class FQCN and constant name using a
+     * previously {@linkplain #registerEnum registered} resolver.
+     *
+     * @param fqcn the enum's declaring-class fully-qualified name
+     * @param name the enum constant name ({@code Enum#name()})
+     * @return the resolved enum constant, or {@code null} if {@code name} is {@code null}
+     * @throws IllegalArgumentException if no resolver is registered for {@code fqcn}
+     *
+     * <p><b>Under the hood:</b> Looks up the resolver in {@code enumResolvers} and applies it to
+     * {@code name}. No reflection is involved, keeping the read path TeaVM-safe.</p>
+     */
+    public static Enum<?> resolveEnum(String fqcn, String name) {
+        if (name == null) {
+            return null;
+        }
+        Function<String, Enum<?>> resolver = enumResolvers.get(fqcn);
+        if (resolver == null) {
+            throw new IllegalArgumentException("Unknown enum type: " + fqcn
+                + ". Make sure it is registered via BinaryRegistry.registerEnum(...).");
+        }
+        return resolver.apply(name);
+    }
+
     /**
      * Retrieves the compiled serializer delegate for a given model class name.
      *

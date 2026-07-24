@@ -64,6 +64,8 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
     private final List<String> validatedModels = new ArrayList<>();
     /** FQCNs of @ClientWritable models, for live-supplier registrar generation. */
     private final List<String> clientWritableModels = new ArrayList<>();
+    /** FQCNs of enum types reachable from @DataModel fields, for enum-resolver registrar generation. */
+    private final Set<String> enumTypes = new LinkedHashSet<>();
 
     /**
      * Specifies the supported Java source version (latest supported).
@@ -150,6 +152,7 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
             binaryModels.clear();
             validatedModels.clear();
             clientWritableModels.clear();
+            enumTypes.clear();
         }
 
         return true;
@@ -180,6 +183,7 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
 
             List<FieldInfo> fields = getFields(typeElement, typeUtils);
             for (FieldInfo field : fields) {
+                collectEnumTypes(field.type);
                 String readExpr = getReadExpression(field, "obj");
                 writeSerializationCode(writer, field, readExpr);
             }
@@ -220,6 +224,9 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
             writer.write("        buffer.putChar(" + readExpr + ");\n");
         } else if (typeStr.equals("java.lang.String")) {
             writer.write("        BinarySerializer.writeString(buffer, " + readExpr + ");\n");
+        } else if (isEnum(field.type)) {
+            // TeaVM-safe scalar enum: write the constant name, no reflection, no registry tag.
+            writer.write("        BinarySerializer.writeString(buffer, " + readExpr + " == null ? null : " + readExpr + ".name());\n");
         } else if (isDataModel(field.type)) {
             writer.write("        if (" + readExpr + " == null) {\n");
             writer.write("            buffer.put((byte) 0);\n");
@@ -256,6 +263,12 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
             writer.write("        " + writeTarget + "buffer.getChar()" + suffix + ";\n");
         } else if (typeStr.equals("java.lang.String")) {
             writer.write("        " + writeTarget + "BinarySerializer.readString(buffer)" + suffix + ";\n");
+        } else if (isEnum(field.type)) {
+            // TeaVM-safe scalar enum: rebuild the constant via the known enum type's valueOf.
+            writer.write("        {\n");
+            writer.write("            String _raw = BinarySerializer.readString(buffer);\n");
+            writer.write("            " + writeTarget + "(_raw == null ? null : " + typeStr + ".valueOf(_raw))" + suffix + ";\n");
+            writer.write("        }\n");
         } else if (isDataModel(field.type)) {
             writer.write("        if (buffer.get() != 0) {\n");
             writer.write("            " + typeStr + " nested = new " + typeStr + "();\n");
@@ -585,6 +598,9 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
             for (String model : clientWritableModels) {
                 writer.write("        BinaryRegistry.registerLive(\"" + model + "\", " + model + "_Live::new);\n");
             }
+            for (String enumType : enumTypes) {
+                writer.write("        BinaryRegistry.registerEnum(\"" + enumType + "\", " + enumType + "::valueOf);\n");
+            }
             for (String model : binaryModels) {
                 writer.write("        BinaryRegistry.register(\"" + model + "\", " + model + "::new, new BinarySerializerDelegate<" + model + ">() {\n");
                 writer.write("            @Override\n");
@@ -703,6 +719,39 @@ public class RmiAnnotationProcessor extends AbstractProcessor {
         } else {
             return "";
         }
+    }
+
+    /**
+     * True when the declared type is a Java {@code enum}. Used to emit TeaVM-safe,
+     * reflection-free enum (de)serialization at codegen time (the concrete enum type is known).
+     */
+    private boolean isEnum(TypeMirror type) {
+        if (type instanceof DeclaredType) {
+            return ((DeclaredType) type).asElement().getKind() == ElementKind.ENUM;
+        }
+        return false;
+    }
+
+    /**
+     * Records every enum type reachable from a field's declared type, including enums nested in
+     * generic containers ({@code List<MyEnum>}, {@code Map<UUID, MyEnum>}), so the generated
+     * registrar can register a reflection-free resolver for each via {@code BinaryRegistry.registerEnum}.
+     */
+    private void collectEnumTypes(TypeMirror type, Set<String> out) {
+        if (type instanceof DeclaredType) {
+            DeclaredType declared = (DeclaredType) type;
+            Element element = declared.asElement();
+            if (element.getKind() == ElementKind.ENUM) {
+                out.add(((TypeElement) element).getQualifiedName().toString());
+            }
+            for (TypeMirror arg : declared.getTypeArguments()) {
+                collectEnumTypes(arg, out);
+            }
+        }
+    }
+
+    private void collectEnumTypes(TypeMirror type) {
+        collectEnumTypes(type, enumTypes);
     }
 
     private boolean isDataModel(TypeMirror type) {

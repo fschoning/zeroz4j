@@ -224,6 +224,64 @@ public class RmiAnnotationProcessorTest {
     }
 
     @Test
+    public void testEnumFieldSerialization(@TempDir Path tempDir) throws Exception {
+        Path srcDir = tempDir.resolve("src");
+        Files.createDirectories(srcDir.resolve("com/test"));
+
+        String enumSrc = "package com.test;\n" +
+                "public enum Priority { LOW, MEDIUM, HIGH }\n";
+
+        String modelSrc = "package com.test;\n" +
+                "import com.zeroz4j.api.DataModel;\n" +
+                "import java.util.List;\n" +
+                "@DataModel\n" +
+                "public class Ticket {\n" +
+                "    private Priority priority;\n" +
+                "    private List<Priority> labels;\n" +
+                "    public Priority getPriority() { return priority; }\n" +
+                "    public void setPriority(Priority p) { this.priority = p; }\n" +
+                "    public List<Priority> getLabels() { return labels; }\n" +
+                "    public void setLabels(List<Priority> l) { this.labels = l; }\n" +
+                "}\n";
+
+        Files.writeString(srcDir.resolve("com/test/Priority.java"), enumSrc);
+        Files.writeString(srcDir.resolve("com/test/Ticket.java"), modelSrc);
+
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+        Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(Arrays.asList(
+                srcDir.resolve("com/test/Priority.java").toFile(),
+                srcDir.resolve("com/test/Ticket.java").toFile()
+        ));
+
+        Path outDir = tempDir.resolve("out");
+        Files.createDirectories(outDir);
+
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        JavaCompiler.CompilationTask task = compiler.getTask(
+                null, fileManager, diagnostics,
+                Arrays.asList("-d", outDir.toString(), "-s", outDir.toString()),
+                null, compilationUnits);
+        task.setProcessors(Collections.singletonList(new RmiAnnotationProcessor()));
+
+        boolean success = task.call();
+        for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+            System.err.println(diagnostic);
+        }
+        assertTrue(success, "Compilation should succeed");
+
+        String serializerContent = Files.readString(outDir.resolve("com/test/Ticket_Serializer.java"));
+        // Scalar enum field uses the TeaVM-safe name()/valueOf path, not the generic tag.
+        assertTrue(serializerContent.contains(".name()"), "Scalar enum write should use name()");
+        assertTrue(serializerContent.contains("Priority.valueOf(_raw)"), "Scalar enum read should use valueOf");
+
+        String registrarContent = Files.readString(
+                outDir.resolve("com/zeroz4j/generated/BinaryPackableRegistrar.java"));
+        assertTrue(registrarContent.contains("registerEnum(\"com.test.Priority\", com.test.Priority::valueOf)"),
+                "Registrar must register a resolver for the enum type (scalar and container use)");
+    }
+
+    @Test
     public void testClientWritableLiveSubclassGeneration(@TempDir Path tempDir) throws Exception {
         Path srcDir = tempDir.resolve("src");
         Files.createDirectories(srcDir.resolve("com/test"));
